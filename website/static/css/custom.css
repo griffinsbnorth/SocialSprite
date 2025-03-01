@@ -1,0 +1,39 @@
+.bsImgThmbs {
+    display: flex;
+}
+
+.bsImgThmb {
+    height: 100px;
+    padding: 10px;
+}
+
+.spanclose {
+    cursor:pointer;
+}
+
+.tblock {
+    padding-bottom: 10px;
+}
+
+.bsimgselectcontainer {
+    display: flex;
+
+}
+
+.bsimgselect {
+    display: flex;
+    flex-direction:row;
+    flex-wrap:wrap;
+    max-width: 200px;
+    padding: 5px;
+}
+
+.tbphoto {
+    display: flex;
+}
+
+.tbthumbcontainer {
+    display: grid;
+    justify-items: baseline;
+    padding: 5px;
+}

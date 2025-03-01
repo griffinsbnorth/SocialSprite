@@ -1,0 +1,95 @@
+﻿{% extends "base.html" %}
+{% block title %}Add Post{% endblock %}
+{% block content %}
+<script src="{{ url_for('static', filename='js/filepond.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filepond-plugin-image-preview.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filepond-plugin-image-resize.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filepond-plugin-image-transform.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filepond-plugin-file-rename.js') }}"></script>
+<script src="{{ url_for('static', filename='js/quill.js') }}"></script>
+<script src="{{ url_for('static', filename='js/addpost.js') }}"></script>
+<h1>ADD POST</h1>
+<form method="POST" enctype="multipart/form-data">
+    <label for="title"><h2>Title: </h2></label>
+    <input type="text" id="title" name="title" class="form-control" maxlength="150">
+    <br />
+    <label for="scheduledate">Scheduled for:</label>
+    <input type="date" id="scheduledate" name="scheduledate">
+    <label for="time">At time(optional):</label>
+    <input type="time" id="time" name="time">
+    <br />
+    <label for="repost"> Repost? </label>
+    <input type="checkbox" id="repost" name="repost" value="repost" checked>
+    <label for="cycle"> Cycle post? </label>
+    <input type="checkbox" id="cycle" name="cycle" value="cycle" checked>
+    <br />
+    <input type="checkbox" id="images" name="images" value="images" checked>
+    <label for="images"><h2>Images</h2></label>
+    <canvas id="hiddencanvas" width=200 height=100 hidden></canvas>
+    <div id="imgsection" name="imgsection">
+        <input type="file" id="imgupload" name='imgupload' multiple>
+        <div id="watermarks" name="watermarks"></div>
+    </div>
+    <br />
+    <input type="checkbox" id="tumblr" name="tumblr" value="Tumblr" checked>
+    <label for="tumblr"> <h2>Tumblr</h2> </label>
+    <div id="tform" name="tform">
+        <div id="tblocks" name="tblocks"></div>
+            <div id="prevttags"></div>
+            <label for="ttags"><h3>Tags: </h3></label>
+            <input type="text" id="ttags" name="tags" class="form-control" maxlength="300">
+            <br />
+            <button type="button" id="addTbPhotoBtn" class="btn btn-secondary">Add Photo Block</button>
+            <button type="button" id="addTbTextBtn" class="btn btn-secondary">Add Text Block</button>
+            <button type="button" id="addTbLinkBtn" class="btn btn-secondary">Add Link Block</button>
+            <button type="button" id="addTbAudioBtn" class="btn btn-secondary">Add Audio Block</button>
+            <button type="button" id="addTbVideoBtn" class="btn btn-secondary">Add Video Block</button>
+            <button type="button" id="removeTblockBtn" class="btn btn-warning" hidden>Remove Block</button>
+        </div>
+        <br />
+        <input type="checkbox" id="bluesky" name="bluesky" value="BlueSky" checked>
+        <label for="bluesky"> <h2>BlueSky</h2> </label>
+        <div id="bsform" name="bsform">
+            <div id="bsformerrors">
+                <button type="button" id="bsimgerror" class="btn btn-warning" hidden>Double check your images!!</button>
+            </div>
+            <div id="bspost1" name="bspost">
+                <div class="bsimgselectcontainer" id="bsimgselectcontainer1">
+                    <div name="bsimgselect" id="bsimgselectp1i1" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i1thmb" hidden />
+                        <select name="bsimgs" id="bsp1i1">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
+                    <div name="bsimgselect" id="bsimgselectp1i2" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i2thmb" hidden />
+                        <select name="bsimgs" id="bsp1i2">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
+                    <div name="bsimgselect" id="bsimgselectp1i3" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i3thmb" hidden />
+                        <select name="bsimgs" id="bsp1i3">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
+                    <div name="bsimgselect" id="bsimgselectp1i4" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i4thmb" hidden />
+                        <select name="bsimgs" id="bsp1i4">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="bstext1" name="bstext"></div>
+                <div id="charNum1" class="charNum">0/300</div>
+            </div>
+        </div>
+        <br />
+        <button type="button" id="addBStxtBtn" class="btn btn-secondary">Add new text</button>
+        <button type="button" id="removeBStxtBtn" class="btn btn-warning" hidden>Remove text</button>
+        <br />
+        <div align="center">
+            <button id="submitBtn" type="submit" class="btn btn-primary">Add Post</button>
+        </div>
+</form>
+{% endblock %}

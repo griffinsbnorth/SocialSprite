@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}"/>
+    <link href="{{ url_for('static', filename='css/filepond.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/filepond-plugin-image-preview.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/quill.snow.css') }}" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+
+    <title>{% block title %}Home{% endblock %}</title>
+</head>
+<body>
+    <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/popper.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <button class="navbar-toggler"
+                type="button"
+                data-toggle="collapse"
+                data-target="#navbar">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbar">
+            <div class="navbar-nav">
+                <a class="nav-item nav-link" id="home" href="/">Home</a>
+                <a class="nav-item nav-link" id="logout" href="/logout">Logout</a>
+                <a class="nav-item nav-link" id="login" href="/login">Login</a>
+                <a class="nav-item nav-link" id="addpost" href="/addpost">Add Post</a>
+                <a class="nav-item nav-link" id="addpost" href="/posts">Posts</a>
+                <a class="nav-item nav-link" id="addpost" href="/watchers">Watchers</a>
+                <a class="nav-item nav-link" id="addpost" href="/queue">Queue</a>
+            </div>
+        </div>
+    </nav>
+    <div class="container">{% block content %} {% endblock %}</div>
+</body>
+</html>
