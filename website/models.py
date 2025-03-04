@@ -9,17 +9,6 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(150))
     username = db.Column(db.String(150))
 
-class Settings(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    blogname = db.Column(db.String(150))
-    tconsumerkey = db.Column(db.String(150))
-    tconsumersecret = db.Column(db.String(150))
-    toauthtoken = db.Column(db.String(150))
-    toauthsecret = db.Column(db.String(150))
-    busername = db.Column(db.String(150))
-    bpassword = db.Column(db.String(150))
-
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -66,6 +55,7 @@ class Image(db.Model):
     height = db.Column(db.Integer)
     aspectratio = db.Column(db.String(32))
     mimetype = db.Column(db.String(128))
+    ready = db.Column(db.Boolean, default=False, nullable=False)
 
 class Tag(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -84,3 +74,8 @@ class Postjob(db.Model):
 class Watcher(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    url = db.Column(db.String(256))
+    lastran = db.Column(db.DateTime(timezone=True), default=func.now())
+    status = db.Column(db.String(32))
+    script = db.Column(db.String(32))
+    running = db.Column(db.Boolean, default=True, nullable=False)

@@ -1,2 +1,6 @@
 .vs/
 website/__pycache__/
+.env
+config.py
+__pycache__
+instance/
