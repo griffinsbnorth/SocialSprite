@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<form method="POST">
+    <h3>Settings</h3>
+    <div class="form-group">
+        <label for="oldpassword1">Old Password</label>
+        <input type="password"
+               class="form-control"
+               id="oldpassword1"
+               name="password"
+               placeholder="Enter password" />
+    </div>
+    <div class="form-group">
+        <label for="oldpassword2">Re-enter Old Password</label>
+        <input type="password"
+               class="form-control"
+               id="oldpassword2"
+               name="password"
+               placeholder="Enter password" />
+    </div>
+    <div class="form-group">
+        <label for="newpassword">New Password</label>
+        <input type="password"
+               class="form-control"
+               id="newpassword"
+               name="password"
+               placeholder="Enter password" />
+    </div>
+    <br />
+    <button type="submit" class="btn btn-primary">Update Password</button>
+</form>
+{% endblock %}
