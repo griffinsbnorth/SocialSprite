@@ -31,7 +31,8 @@ $(document).ready(function () {
         imageResizeTargetWidth: 1280,
         imageResizeMode: 'contain',
         imageResizeUpscale: false,
-        storeAsFile: true
+        storeAsFile: true,
+        allowReorder: true
     });
     pond.setOptions({
         fileRenameFunction: (file) => {
