@@ -12,8 +12,23 @@ def home():
 @login_required
 def addpost():
     if request.method == 'POST':
-        data = request.files
+        data = request.form
         print(data)
+
+        title = request.form.get('title')
+        scheduledate = request.form.get('scheduledate')
+        time = request.form.get('time')
+        if (time == ''):
+            time = '00:00'
+        print(time)
+        repost = request.form.get('repost') != None
+        cycle = request.form.get('cycle') != None
+        images = request.form.get('images') != None
+        tumblr = request.form.get('tumblr') != None
+        bluesky = request.form.get('bluesky') != None
+
+
+
     return render_template("addpost.html", user=current_user)
 
 @views.route('/posts', methods=['GET', 'POST'])

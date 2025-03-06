@@ -27,7 +27,7 @@ class Tumblrblock(db.Model):
     order = db.Column(db.Integer, default=0)
     blocktype = db.Column(db.String(32))
     imageids = db.Column(db.JSON)
-    text = db.Column(db.String(1024))
+    text = db.Column(db.String(4096))
     url = db.Column(db.String(256))
     blogname = db.Column(db.String(150))
     embed = db.Column(db.String(512))

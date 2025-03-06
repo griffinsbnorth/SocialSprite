@@ -11,11 +11,18 @@ var imgthumbnails = {};
 var bstoolbarOptions;
 var bsoptions;
 
+var pond;
+
 $(document).ready(function () {
     //checkboxes
     $('#images').on('change', function () { toggleSection('images', 'imgsection') });
     $('#tumblr').on('change', function () { toggleSection('tumblr', 'tform') });
     $('#bluesky').on('change', function () { toggleSection('bluesky', 'bsform') });
+
+    //set datepicker
+    var date = new Date();
+    date.setUTCDate(date.getUTCDate() + 1);
+    $('#scheduledate').attr('min', date.toLocaleDateString());
 
     //image section
     // register the plugins with FilePond
@@ -23,16 +30,19 @@ $(document).ready(function () {
         FilePondPluginImagePreview,
         FilePondPluginImageResize,
         FilePondPluginImageTransform,
-        FilePondPluginFileRename
+        FilePondPluginFileRename,
+        FilePondPluginFileValidateType
     );
     const inputElement = document.getElementById('imgupload');
-    const pond = FilePond.create(inputElement, {
+    pond = FilePond.create(inputElement, {
         imageResizeTargetHeight: 1290,
         imageResizeTargetWidth: 1280,
         imageResizeMode: 'contain',
         imageResizeUpscale: false,
+        acceptedFileTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
         storeAsFile: true,
-        allowReorder: true
+        allowReorder: true,
+        required: true
     });
     pond.setOptions({
         fileRenameFunction: (file) => {
@@ -123,6 +133,50 @@ $(document).ready(function () {
             event.formData.append('bstext' + key, JSON.stringify(bsrichTxtEditors[key].getContents().ops));
         }
     });
+
+    form.addEventListener('submit', (event) => {
+        //check all errors
+        var error = false;
+        var errormsg = '';
+        if ($('#tumblr').is(':checked')) {
+            if (tBlockIndex > 0) {
+                for (const key in richTxtEditors) {
+                    if (richTxtEditors[key].getText().trim().length == 0) {
+                        errormsg += 'Tumblr block #' + key + ' can\'t be empty.</br>';
+                        error = true;
+                    }
+                }
+            } else {
+                errormsg += 'Tumblr post can\'t be empty.</br>';
+                error = true;
+            }
+        }
+        if ($('#bluesky').is(':checked')) {
+            if (bsImgError) {
+                errormsg += 'You need to double check your BlueSky images.</br>';
+                error = true;
+            }
+            for (const key in bsTextError) {
+                if (bsTextError[key]) {
+                    errormsg += 'Skeet #' + key + ' is over the character limit.</br>';
+                    error = true;
+                }
+            }
+            for (const key in bsrichTxtEditors) {
+                if (bsrichTxtEditors[key].getText().trim().length == 0) {
+                    errormsg += 'Skeet #' + key + ' can\'t be empty.</br>';
+                    error = true;
+                }
+            }
+        }
+
+
+
+        if (error) {
+            $('#errormessages').html(errormsg);
+            event.preventDefault();
+        }
+    });
 });
 
 function addImgOptions(dropdown) {
@@ -167,7 +221,18 @@ function toggleSection(val, section) {
     const submit = document.getElementById('submitBtn');
 
     formSection.hidden = !formCheckbox.checked;
-    submit.disabled = !formCheckbox.checked;
+    if (section == 'imgsection') {
+        pond.setOptions({
+            required: formCheckbox.checked
+        });
+    }
+    if (section == 'tform') {
+        document.getElementById('ttags').required = formCheckbox.checked;
+    }
+
+    const tumblrcheck = document.getElementById('tumblr').checked;
+    const blueskycheck = document.getElementById('bluesky').checked;
+    submit.disabled = !tumblrcheck && !blueskycheck;
 };
 
 function countChar(index, counter) {
@@ -210,7 +275,7 @@ function addBStext() {
 
 function removeBStext() {
     removeElement('bspost' + bsPostIndex);
-    delete richTxtEditors[bsPostIndex];
+    delete bsrichTxtEditors[bsPostIndex];
     bsPostIndex -= 1;
     if (bsPostIndex == 1) {
         $('#removeBStxtBtn').prop('hidden', true);
@@ -252,14 +317,14 @@ function addTblock(blocktype) {
             $('#tblock' + tBlockIndex).append('<button type="button" class="btn btn-secondary" onclick="getImgOptionCheckboxes(\'tbphoto' + tBlockIndex + '\')">Refresh Image Options</button>');
             break;
         case "link":
-            $('#tblock' + tBlockIndex).append('<label for="tblink' + bsPostIndex + 'url">url:</label><input type="url" id="tblink' + bsPostIndex + 'url" name="tblink' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control">');
+            $('#tblock' + tBlockIndex).append('<label for="tblink' + bsPostIndex + 'url">url:</label><input type="url" id="tblink' + bsPostIndex + 'url" name="tblink' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
             break;
         case "audio":
-            $('#tblock' + tBlockIndex).append('<label for="tbaudio' + bsPostIndex + 'url">url:</label><input type="url" id="tbaudio' + bsPostIndex + 'url" name="tbaudio' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control">');
+            $('#tblock' + tBlockIndex).append('<label for="tbaudio' + bsPostIndex + 'url">url:</label><input type="url" id="tbaudio' + bsPostIndex + 'url" name="tbaudio' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
             $('#tblock' + tBlockIndex).append('<label for="tbaudio' + bsPostIndex + 'embed">Embed HTML Code:</label><input type="text" id="tbaudio' + bsPostIndex + 'embed" name="tbaudio' + bsPostIndex + 'embed" class="form-control">');
             break;
         case "video":
-            $('#tblock' + tBlockIndex).append('<label for="tbvideo' + bsPostIndex + 'url">url:</label><input type="url" id="tbvideo' + bsPostIndex + 'url" name="tbvideo' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control">');
+            $('#tblock' + tBlockIndex).append('<label for="tbvideo' + bsPostIndex + 'url">url:</label><input type="url" id="tbvideo' + bsPostIndex + 'url" name="tbvideo' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
             $('#tblock' + tBlockIndex).append('<label for="tbvideo' + bsPostIndex + 'embed">Embed HTML Code:</label><input type="text" id="tbvideo' + bsPostIndex + 'embed" name="tbvideo' + bsPostIndex + 'embed" class="form-control">');
     }
 };

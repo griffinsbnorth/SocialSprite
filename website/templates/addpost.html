@@ -6,15 +6,16 @@
 <script src="{{ url_for('static', filename='js/filepond-plugin-image-resize.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filepond-plugin-image-transform.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filepond-plugin-file-rename.js') }}"></script>
+<script src="{{ url_for('static', filename='js/filepond-plugin-file-validate-type.js') }}"></script>
 <script src="{{ url_for('static', filename='js/quill.js') }}"></script>
 <script src="{{ url_for('static', filename='js/addpost.js') }}"></script>
 <h1>ADD POST</h1>
 <form method="POST" enctype="multipart/form-data">
     <label for="title"><h2>Title: </h2></label>
-    <input type="text" id="title" name="title" class="form-control" maxlength="150">
+    <input type="text" id="title" name="title" class="form-control" maxlength="150" required>
     <br />
     <label for="scheduledate">Scheduled for:</label>
-    <input type="date" id="scheduledate" name="scheduledate">
+    <input type="date" id="scheduledate" name="scheduledate" required>
     <label for="time">At time(optional):</label>
     <input type="time" id="time" name="time">
     <br />
@@ -37,7 +38,7 @@
         <div id="tblocks" name="tblocks"></div>
             <div id="prevttags"></div>
             <label for="ttags"><h3>Tags: </h3></label>
-            <input type="text" id="ttags" name="tags" class="form-control" maxlength="300">
+            <input type="text" id="ttags" name="tags" class="form-control" maxlength="300" required>
             <br />
             <button type="button" id="addTbPhotoBtn" class="btn btn-secondary">Add Photo Block</button>
             <button type="button" id="addTbTextBtn" class="btn btn-secondary">Add Text Block</button>
@@ -88,6 +89,7 @@
         <button type="button" id="addBStxtBtn" class="btn btn-secondary">Add new text</button>
         <button type="button" id="removeBStxtBtn" class="btn btn-warning" hidden>Remove text</button>
         <br />
+        <span id="errormessages"></span>
         <div align="center">
             <button id="submitBtn" type="submit" class="btn btn-primary">Add Post</button>
         </div>
