@@ -1,5 +1,4 @@
 //error tags
-var bsImgError = false;
 var bsTextError = {};
 
 //post variables
@@ -7,6 +6,8 @@ var bsPostIndex = 1;
 var tBlockIndex = 0;
 var richTxtEditors = {};
 var bsrichTxtEditors = {};
+var bsPhotoSelectors = [];
+var tBlocks = [];
 var imgthumbnails = {};
 var bstoolbarOptions;
 var bsoptions;
@@ -22,7 +23,11 @@ $(document).ready(function () {
     //set datepicker
     var date = new Date();
     date.setUTCDate(date.getUTCDate() + 1);
+    var cycledate = new Date();
+    cycledate.setUTCDate(cycledate.getUTCDate() + 8);
     $('#scheduledate').attr('min', date.toLocaleDateString());
+    $('#cycledate').attr('min', cycledate.toLocaleDateString());
+    $('#cycledate').val(cycledate.toLocaleDateString());
 
     //image section
     // register the plugins with FilePond
@@ -55,16 +60,30 @@ $(document).ready(function () {
         onaddfile: (error, file) => {
             if (!error) {
                 $('#watermarks').append('<div id="wm' + file.filename + '"><label for="watermark' + file.filename + '"> Add watermark for ' + file.filename + '? </label><input type="checkbox" id="watermark' + file.filename + '" name="watermark" value="' + file.filename + '" ><div/>');
-                bsImgError = true;
-                $('#bsimgerror').removeAttr('hidden');
+                for (let i = 0; i < bsPhotoSelectors.length; i++) {
+                    $(bsPhotoSelectors[i]).append($('<option>', {
+                        value: file.filename,
+                        text: file.filename
+                    }));
+                }
             }
         },
         onremovefile: (error, file) => {
             if (!error) {
                 removeElement('wm' + file.filename);
-                bsImgError = true;
-                $('#bsimgerror').removeAttr('hidden');
                 delete imgthumbnails[file.filename];
+                for (let i = 0; i < bsPhotoSelectors.length; i++) {
+                    if ($(bsPhotoSelectors[i]).val() == file.filename) {
+                        $(bsPhotoSelectors[i]).val("none").change();
+                    }
+                    $(bsPhotoSelectors[i] + " option[value='" + file.filename + "']").remove();
+                } 
+                for (let i = 0; i < tBlocks.length; i++) {
+                    if (tBlocks[i].includes("photo")) {
+                        var block = i + 1;
+                        removeElement('tbthumbb' + block + file.filename);
+                    }
+                } 
             }
         },
         onpreparefile: (file, output) => {
@@ -79,6 +98,19 @@ $(document).ready(function () {
                 canvas.width = newwidth;
                 ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, newwidth, 100);
                 imgthumbnails[file.filename] = canvas.toDataURL();
+
+                for (let i = 0; i < tBlocks.length; i++) {
+                    if (tBlocks[i].includes("photo")) {
+                        var block = i + 1;
+                        var element = document.getElementById(tBlocks[i]);
+                        var newHTML = '<div id="tbthumbb' + block + file.filename + '" class="tbthumbcontainer">';
+                        newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[file.filename] + '">';
+                        newHTML += '<input type="checkbox" id="tb' + block + file.filename + '" name="imgcheckbox' + block + '" value="' + file.filename + '">'
+                        newHTML += '<label for="tb' + block + file.filename + '">' + file.filename + '</label></div><br>';
+                        element.innerHTML += newHTML;
+                    }
+                } 
+
             }
 
             img.src = URL.createObjectURL(output);
@@ -94,17 +126,17 @@ $(document).ready(function () {
     $('#removeTblockBtn').click(function () { removeTblock() });
 
     //bluesky section
-    $('#bsimgerror').click(function () { hideAndClearError(this) });
     $('#addBStxtBtn').click(function () { addBStext() });
     $('#removeBStxtBtn').click(function () { removeBStext() });
     $('#bsp1i1').on('change', function () { addThumbnail(this.value, this) });
     $('#bsp1i2').on('change', function () { addThumbnail(this.value, this) });
     $('#bsp1i3').on('change', function () { addThumbnail(this.value, this) });
     $('#bsp1i4').on('change', function () { addThumbnail(this.value, this) });
-    $('#bsp1i1').on('focus', function () { addImgOptions(this) });
-    $('#bsp1i2').on('focus', function () { addImgOptions(this) });
-    $('#bsp1i3').on('focus', function () { addImgOptions(this) });
-    $('#bsp1i4').on('focus', function () { addImgOptions(this) });
+    bsPhotoSelectors[0] = '#bsp1i1';
+    bsPhotoSelectors[1] = '#bsp1i2';
+    bsPhotoSelectors[2] = '#bsp1i3';
+    bsPhotoSelectors[3] = '#bsp1i4';
+
 
     bstoolbarOptions = [
         ['link'],        // toggled buttons
@@ -138,6 +170,7 @@ $(document).ready(function () {
         //check all errors
         var error = false;
         var errormsg = '';
+        var attachedimages = false;
         if ($('#tumblr').is(':checked')) {
             if (tBlockIndex > 0) {
                 for (const key in richTxtEditors) {
@@ -146,16 +179,27 @@ $(document).ready(function () {
                         error = true;
                     }
                 }
+                for (let i = 0; i < tBlocks.length; i++) {
+                    if (tBlocks[i].includes("photo")) {
+                        attachedimages = true;
+                        var block = i + 1;
+                        var imgcheckboxes = document.getElementsByName("imgcheckbox" + block);
+                        var checked = false;
+                        for (let j = 0; j < imgcheckboxes.length; j++) {
+                            checked = checked || imgcheckboxes[j].checked;
+                        }
+                        if (!checked) {
+                            errormsg += 'Tumblr photo block #' + block + ' has no chosen photos.</br>';
+                            error = true;
+                        }
+                    }
+                }
             } else {
                 errormsg += 'Tumblr post can\'t be empty.</br>';
                 error = true;
             }
         }
         if ($('#bluesky').is(':checked')) {
-            if (bsImgError) {
-                errormsg += 'You need to double check your BlueSky images.</br>';
-                error = true;
-            }
             for (const key in bsTextError) {
                 if (bsTextError[key]) {
                     errormsg += 'Skeet #' + key + ' is over the character limit.</br>';
@@ -168,6 +212,15 @@ $(document).ready(function () {
                     error = true;
                 }
             }
+            for (let i = 0; i < bsPhotoSelectors.length; i++) {
+                if ($(bsPhotoSelectors[i]).val() != "none") {
+                    attachedimages = true;
+                }
+            } 
+        }
+        if ($('#images').is(':checked') && !attachedimages) {
+            errormsg += 'Image post has no images attached to post or skeet(s)</br>';
+            error = true;
         }
 
 
@@ -175,6 +228,7 @@ $(document).ready(function () {
         if (error) {
             $('#errormessages').html(errormsg);
             event.preventDefault();
+            return false;
         }
     });
 });
@@ -199,20 +253,14 @@ function addThumbnail(option, thumb) {
 function getImgOptionCheckboxes(elementname) {
     const element = document.getElementById(elementname);
     element.innerHTML = '';
-    var i = 0;
+
     for (const key in imgthumbnails) {
-        var newHTML = '<div id="tbthumbb' + tBlockIndex + 'i' + i + '" class="tbthumbcontainer">';
+        var newHTML = '<div id="tbthumbb' + tBlockIndex + key + '" class="tbthumbcontainer">';
         newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[key] + '">';
-        newHTML += '<input type="checkbox" id="tb' + tBlockIndex + key + '" name="imgcheckbox" value="' + key + '">'
+        newHTML += '<input type="checkbox" id="tb' + tBlockIndex + key + '" name="imgcheckbox' + tBlockIndex + '" value="' + key + '">'
         newHTML += '<label for="tb' + tBlockIndex + key + '">' + key + '</label></div><br>';
         element.innerHTML += newHTML;
-        i += 1;
     }
-};
-
-function hideAndClearError(errorElement) {
-    errorElement.hidden = true;
-    bsImgError = false;
 };
 
 function toggleSection(val, section) {
@@ -263,7 +311,8 @@ function addBStext() {
         $('#bsimgselectp' + bsPostIndex + 'i' + i).append('<select name="bsimgs" id="bsp' + bsPostIndex + 'i' + i + '"><option value="none" selected>None</option></select>');
         var thumbnail = 'bsp' + bsPostIndex + 'i' + i + 'thmb';
         $('#bsp' + bsPostIndex + 'i' + i).on('change', function () { addThumbnail(this.value, this) });
-        $('#bsp' + bsPostIndex + 'i' + i).on('focus', function () { addImgOptions(this) });
+        addImgOptions(document.getElementById('bsp' + bsPostIndex + 'i' + i));
+        bsPhotoSelectors.push('#bsp' + bsPostIndex + 'i' + i);
     }
     $('#bspost' + bsPostIndex).append('<div id="bstext' + bsPostIndex + '" name="bstext"></div>');
     bsrichTxtEditors[bsPostIndex] = new Quill('#bstext' + bsPostIndex, bsoptions);
@@ -274,6 +323,9 @@ function addBStext() {
 };
 
 function removeBStext() {
+    for (i = 1; i < 5; i++) {
+        bsPhotoSelectors.pop();
+    }
     removeElement('bspost' + bsPostIndex);
     delete bsrichTxtEditors[bsPostIndex];
     bsPostIndex -= 1;
@@ -289,6 +341,7 @@ function addTblock(blocktype) {
     $('#tblock' + tBlockIndex).append('<h4>' + blocktype.toUpperCase() + '</h4>');
     $('#tblock' + tBlockIndex).append('<input type="text" id="tbtype' + tBlockIndex + '" name="tbtype" hidden>');
     $('#tbtype' + tBlockIndex).val(blocktype);
+    tBlocks.push('tb' + blocktype + tBlockIndex);
 
 
     switch (blocktype) {
@@ -312,9 +365,8 @@ function addTblock(blocktype) {
             richTxtEditors[tBlockIndex] = new Quill('#tbtext' + tBlockIndex, options);
             break;
         case "photo":
-            $('#tblock' + tBlockIndex).append('<div id="tbphoto' + tBlockIndex + '" name="tbphoto" class="tbphoto"></div>');
+            $('#tblock' + tBlockIndex).append('<div id="tbphoto' + tBlockIndex + '" name="tbphoto' + tBlockIndex + '" class="tbphoto"></div>');
             getImgOptionCheckboxes('tbphoto' + tBlockIndex);
-            $('#tblock' + tBlockIndex).append('<button type="button" class="btn btn-secondary" onclick="getImgOptionCheckboxes(\'tbphoto' + tBlockIndex + '\')">Refresh Image Options</button>');
             break;
         case "link":
             $('#tblock' + tBlockIndex).append('<label for="tblink' + bsPostIndex + 'url">url:</label><input type="url" id="tblink' + bsPostIndex + 'url" name="tblink' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
@@ -330,6 +382,7 @@ function addTblock(blocktype) {
 };
 
 function removeTblock() {
+    tBlocks.pop();
     removeElement('tblock' + tBlockIndex);
     if (richTxtEditors[tBlockIndex] != null) {
         delete richTxtEditors[tBlockIndex];

@@ -16,6 +16,7 @@ class Post(db.Model):
     publishdate = db.Column(db.DateTime(timezone=True), default=func.now())
     repost = db.Column(db.Boolean, default=False, nullable=False)
     cycle = db.Column(db.Boolean, default=False, nullable=False)
+    cycledate = db.Column(db.DateTime(timezone=True), default=func.now())
     containsimages = db.Column(db.Boolean, default=False, nullable=False)
     fortumblr = db.Column(db.Boolean, default=True, nullable=False)
     forbluesky = db.Column(db.Boolean, default=True, nullable=False)
