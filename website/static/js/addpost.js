@@ -1,5 +1,6 @@
 //error tags
 var bsTextError = {};
+var tTextError = {};
 
 //post variables
 var bsPostIndex = 1;
@@ -181,9 +182,9 @@ $(document).ready(function () {
                     }
                 }
                 for (let i = 0; i < tBlocks.length; i++) {
+                    var block = i + 1;
                     if (tBlocks[i].includes("photo")) {
                         attachedimages = true;
-                        var block = i + 1;
                         var imgcheckboxes = document.getElementsByName("imgcheckbox" + block);
                         var checked = false;
                         for (let j = 0; j < imgcheckboxes.length; j++) {
@@ -191,6 +192,11 @@ $(document).ready(function () {
                         }
                         if (!checked) {
                             errormsg += 'Tumblr photo block #' + block + ' has no chosen photos.</br>';
+                            error = true;
+                        }
+                    } else if (tBlocks[i].includes("text")) {
+                        if (tTextError[block]) {
+                            errormsg += 'Tumblr text block #' + block + ' is over the character limit.</br>';
                             error = true;
                         }
                     }
@@ -306,6 +312,18 @@ function countChar(index, counter) {
     $(counter).text(len + '/300');
 };
 
+function countTbChar(index, counter) {
+    var len = richTxtEditors[index].getText().trim().length;
+    if (len > 4096) {
+        $(counter).css('color', 'red');
+        tTextError[index] = true;
+    } else {
+        $(counter).css('color', 'black');
+        tTextError[index] = false;
+    }
+    $(counter).text(len + '/4096');
+};
+
 function removeElement(element) {
     var removedElement = document.getElementById(element);
     removedElement.remove();
@@ -373,7 +391,12 @@ function addTblock(blocktype) {
                 },
                 theme: 'snow'
             };
+            $('#tblock' + tBlockIndex).append('<div id="tbcharNum' + tBlockIndex + '" class="tbcharNum">0/4096</div>');
             richTxtEditors[tBlockIndex] = new Quill('#tbtext' + tBlockIndex, options);
+            let i = tBlockIndex;
+            richTxtEditors[tBlockIndex].on('text-change', (delta, oldDelta, source) => {
+                countTbChar(i, '#tbcharNum' + i);
+            });
             break;
         case "photo":
             $('#tblock' + tBlockIndex).append('<div id="tbphoto' + tBlockIndex + '" name="tbphoto' + tBlockIndex + '" class="tbphoto"></div>');
