@@ -26,6 +26,7 @@ $(document).ready(function () {
     var cycledate = new Date();
     cycledate.setUTCDate(cycledate.getUTCDate() + 8);
     $('#scheduledate').attr('min', date.toLocaleDateString());
+    $('#scheduledate').on('change', function () { setCycleMinDate(this.value) });
     $('#cycledate').attr('min', cycledate.toLocaleDateString());
     $('#cycledate').val(cycledate.toLocaleDateString());
 
@@ -282,6 +283,16 @@ function toggleSection(val, section) {
     const blueskycheck = document.getElementById('bluesky').checked;
     submit.disabled = !tumblrcheck && !blueskycheck;
 };
+
+function setCycleMinDate(date) {
+    var cycledate = new Date(date);
+    cycledate.setUTCDate(cycledate.getUTCDate() + 8);
+    $('#cycledate').attr('min', cycledate.toLocaleDateString());
+    var olddate = new Date($('#cycledate').val());
+    if (olddate < cycledate) {
+        $('#cycledate').val(cycledate.toLocaleDateString());
+    }
+}
 
 function countChar(index, counter) {
     var len = bsrichTxtEditors[index].getText().trim().length;
