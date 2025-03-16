@@ -8,6 +8,7 @@ class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     password = db.Column(db.String(150))
     username = db.Column(db.String(150))
+    posts = db.relationship('Post')
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -20,7 +21,7 @@ class Post(db.Model):
     containsimages = db.Column(db.Boolean, default=False, nullable=False)
     fortumblr = db.Column(db.Boolean, default=True, nullable=False)
     forbluesky = db.Column(db.Boolean, default=True, nullable=False)
-    tagids = db.Column(db.JSON)
+    tagids = db.Column(db.JSON, nullable=True)
 
 class Tumblrblock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,7 +55,6 @@ class Image(db.Model):
     url = db.Column(db.String(256), nullable=False)
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)
-    aspectratio = db.Column(db.String(32))
     mimetype = db.Column(db.String(128))
     ready = db.Column(db.Boolean, default=False, nullable=False)
 

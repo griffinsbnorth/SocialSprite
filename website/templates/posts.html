@@ -2,4 +2,64 @@
 {% block title %}Posts{% endblock %}
 {% block content %}
 <h1>POSTS</h1>
+<h2>page {{ pagination.page }}</h2>
+<div class="postspage" id="posts">
+    {% for post in pagination.items %}
+    <div class="postspageitem">
+        <div class="leftside">
+            <h4>{{ post.title }}</h4>
+        </div>
+        <div class="rightside">
+            {{ post.publishdate }}
+            <button type="button" class="close" onClick="deletepost({{ post.id }}, {{ pagination.page }})">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<div class="pagination">
+    {% if pagination.has_prev %}
+    <span>
+        <a class='page-number' href="{{ url_for('views.posts', page=pagination.prev_num) }}">
+            {{ '<<<' }}
+        </a>
+    </span>
+    {% endif %}
+
+    {% for number in pagination.iter_pages() %}
+    {% if pagination.page != number %}
+    <span>
+        <a class='page-number'
+           href="{{ url_for('views.posts', page=number) }}">
+            {{ number }}
+        </a>
+    </span>
+    {% else %}
+    <span class='current-page-number'>{{ number }}</span>
+    {% endif %}
+    {% endfor %}
+
+    {% if pagination.has_next %}
+    <span>
+        <a class='page-number'
+           href="{{ url_for('views.posts', page=pagination.next_num) }}">
+            {{ '>>>' }}
+        </a>
+    </span>
+    {% endif %}
+</div>
+<script type="text/javascript">
+    function deletepost(postid, currentpage) {
+        deleteconfirm = confirm("Are you sure you want to delete this?");
+        if (deleteconfirm) {
+            fetch("/deletepost", {
+                method: "POST",
+                body: JSON.stringify({ postid: postid }),
+            }).then((_res) => {
+                window.location.href = "/posts?page=" + currentpage;
+            });
+        }
+    }
+</script>
 {% endblock %}
