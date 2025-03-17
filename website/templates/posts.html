@@ -11,6 +11,7 @@
         </div>
         <div class="rightside">
             {{ post.publishdate }}
+            <a href="{{ url_for('views.editpost', postid=post.id) }}">EDIT</a>
             <button type="button" class="close" onClick="deletepost({{ post.id }}, {{ pagination.page }})">
                 <span aria-hidden="true">&times;</span>
             </button>

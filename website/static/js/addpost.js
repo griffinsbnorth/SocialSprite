@@ -16,20 +16,53 @@ var bsoptions;
 var pond;
 
 $(document).ready(function () {
+    //title
+    $('#title').val(postdata['title']);
+
     //checkboxes
     $('#images').on('change', function () { toggleSection('images', 'imgsection') });
     $('#tumblr').on('change', function () { toggleSection('tumblr', 'tform') });
-    $('#bluesky').on('change', function () { toggleSection('bluesky', 'bsform') });
+    $('#bluesky').on('change', function () { toggleSection('bluesky', 'bsformall') });
+    $('#images').prop('checked', postdata['images']);
+    $('#tumblr').prop('checked', postdata['tumblr']);
+    $('#bluesky').prop('checked', postdata['bluesky']);
+    $('#repost').prop('checked', postdata['repost']);
+    $('#cycle').prop('checked', postdata['cycle']);
 
     //set datepicker
+    var scheduledatestring = postdata['scheduledate'];
+    var cycledatestring = postdata['cycledate'];
+
     var date = new Date();
     date.setUTCDate(date.getUTCDate() + 1);
-    var cycledate = new Date();
+    if (scheduledatestring != '') {
+        var scheddate = new Date(scheduledatestring);
+        if (scheddate < date) {
+            scheduledatestring = date.toLocaleDateString();
+        }
+    } else {
+        scheduledatestring = date.toLocaleDateString();
+    }
+    var cycledate = new Date(scheduledatestring);
     cycledate.setUTCDate(cycledate.getUTCDate() + 8);
+    if (cycledatestring != '') {
+        var cydate = new Date(cycledatestring);
+        var scheddate = new Date(scheduledatestring);
+        if (cydate < scheddate) {
+            cycledatestring = cycledate.toLocaleDateString();
+        }
+        if (cydate < cycledate) {
+            cycledate = cydate;
+        }
+    } else {
+        cycledatestring = cycledate.toLocaleDateString();
+    }
     $('#scheduledate').attr('min', date.toLocaleDateString());
+    $('#scheduledate').val(scheduledatestring);
     $('#scheduledate').on('change', function () { setCycleMinDate(this.value) });
     $('#cycledate').attr('min', cycledate.toLocaleDateString());
-    $('#cycledate').val(cycledate.toLocaleDateString());
+    $('#cycledate').val(cycledatestring);
+    $('#time').val(postdata['time']);
 
     //image section
     // register the plugins with FilePond
@@ -155,6 +188,10 @@ $(document).ready(function () {
         countChar(1, '#charNum1');
     });
     bsTextError[1] = false;
+
+    toggleSection('images', 'imgsection');
+    toggleSection('tumblr', 'tform');
+    toggleSection('bluesky', 'bsform');
 
     //form submit
     const form = document.querySelector('form');

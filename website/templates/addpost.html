@@ -8,8 +8,11 @@
 <script src="{{ url_for('static', filename='js/filepond-plugin-file-rename.js') }}"></script>
 <script src="{{ url_for('static', filename='js/filepond-plugin-file-validate-type.js') }}"></script>
 <script src="{{ url_for('static', filename='js/quill.js') }}"></script>
+<script type="text/javascript">
+    var postdata = {{ postdata|tojson}}
+</script>
 <script src="{{ url_for('static', filename='js/addpost.js') }}"></script>
-<h1>ADD POST</h1>
+<h1>{{ postop }} POST</h1>
 <form method="POST" enctype="multipart/form-data">
     <label for="title"><h2>Title: </h2></label>
     <input type="text" id="title" name="title" class="form-control" maxlength="150" required>
@@ -52,48 +55,47 @@
     <br />
     <input type="checkbox" id="bluesky" name="bluesky" value="BlueSky" checked>
     <label for="bluesky"> <h2>BlueSky</h2> </label>
-    <div id="bsform" name="bsform">
-        <div id="bsformerrors">
-            <button type="button" id="bsimgerror" class="btn btn-warning" hidden>Double check your images!!</button>
-        </div>
-        <div id="bspost1" name="bspost">
-            <div class="bsimgselectcontainer" id="bsimgselectcontainer1">
-                <div name="bsimgselect" id="bsimgselectp1i1" class="bsimgselect">
-                    <img class="bsImgThmb" src="" id="bsp1i1thmb" hidden />
-                    <select name="bsimgs" id="bsp1i1">
-                        <option value="none" selected>None</option>
-                    </select>
+    <div id="bsformall" name="bsformall">
+        <div id="bsform" name="bsform">
+            <div id="bspost1" name="bspost">
+                <div class="bsimgselectcontainer" id="bsimgselectcontainer1">
+                    <div name="bsimgselect" id="bsimgselectp1i1" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i1thmb" hidden />
+                        <select name="bsimgs" id="bsp1i1">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
+                    <div name="bsimgselect" id="bsimgselectp1i2" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i2thmb" hidden />
+                        <select name="bsimgs" id="bsp1i2">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
+                    <div name="bsimgselect" id="bsimgselectp1i3" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i3thmb" hidden />
+                        <select name="bsimgs" id="bsp1i3">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
+                    <div name="bsimgselect" id="bsimgselectp1i4" class="bsimgselect">
+                        <img class="bsImgThmb" src="" id="bsp1i4thmb" hidden />
+                        <select name="bsimgs" id="bsp1i4">
+                            <option value="none" selected>None</option>
+                        </select>
+                    </div>
                 </div>
-                <div name="bsimgselect" id="bsimgselectp1i2" class="bsimgselect">
-                    <img class="bsImgThmb" src="" id="bsp1i2thmb" hidden />
-                    <select name="bsimgs" id="bsp1i2">
-                        <option value="none" selected>None</option>
-                    </select>
-                </div>
-                <div name="bsimgselect" id="bsimgselectp1i3" class="bsimgselect">
-                    <img class="bsImgThmb" src="" id="bsp1i3thmb" hidden />
-                    <select name="bsimgs" id="bsp1i3">
-                        <option value="none" selected>None</option>
-                    </select>
-                </div>
-                <div name="bsimgselect" id="bsimgselectp1i4" class="bsimgselect">
-                    <img class="bsImgThmb" src="" id="bsp1i4thmb" hidden />
-                    <select name="bsimgs" id="bsp1i4">
-                        <option value="none" selected>None</option>
-                    </select>
-                </div>
+                <div id="bstext1" name="bstext"></div>
+                <div id="charNum1" class="charNum">0/300</div>
             </div>
-            <div id="bstext1" name="bstext"></div>
-            <div id="charNum1" class="charNum">0/300</div>
         </div>
+        <br />
+        <button type="button" id="addBStxtBtn" class="btn btn-secondary">Add new text</button>
+        <button type="button" id="removeBStxtBtn" class="btn btn-warning" hidden>Remove text</button>
     </div>
-    <br />
-    <button type="button" id="addBStxtBtn" class="btn btn-secondary">Add new text</button>
-    <button type="button" id="removeBStxtBtn" class="btn btn-warning" hidden>Remove text</button>
     <br />
     <span id="errormessages"></span>
     <div align="center">
-        <button id="submitBtn" type="submit" class="btn btn-primary">Add Post</button>
+        <button id="submitBtn" type="submit" class="btn btn-primary">{{ postop }} POST</button>
     </div>
 </form>
 {% endblock %}

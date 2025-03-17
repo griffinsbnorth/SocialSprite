@@ -4,3 +4,4 @@ website/__pycache__/
 config.py
 __pycache__
 instance/
+uploads/
