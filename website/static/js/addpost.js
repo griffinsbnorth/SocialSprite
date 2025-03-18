@@ -106,6 +106,8 @@ $(document).ready(function () {
             var newName = file.name;
             if (file.name == "image.png") {
                 newName = 'CPimage_' + Date.now() + `${file.extension}`;
+            } else if (file.name in imgthumbnails) {
+                newName = file.basename + '_' + Date.now() + `${file.extension}`;
             }
             return newName;
         },
