@@ -75,6 +75,23 @@ $(document).ready(function () {
     );
     const inputElement = document.getElementById('imgupload');
     pond = FilePond.create(inputElement, {
+        allowMultiple: true,
+        files: postdata['files'],
+        server: {
+            load: (source, load) => {
+                fetch('/loadfile?source=' + source, {
+                    method: "GET"
+                }).then(res => res.blob()).then(load);
+            },
+            remove: (source, load, error) => {
+                fetch("/deletefile", {
+                    method: "POST",
+                    body: JSON.stringify({ postid: postdata['id'], filename: source }),
+                }).then((_res) => {
+                    load();
+                }); 
+            }
+        },
         imageResizeTargetHeight: 1290,
         imageResizeTargetWidth: 1280,
         imageResizeMode: 'contain',
@@ -94,34 +111,37 @@ $(document).ready(function () {
         },
         onaddfile: (error, file) => {
             if (!error) {
-                $('#watermarks').append('<div id="wm' + file.filename + '"><label for="watermark' + file.filename + '"> Add watermark for ' + file.filename + '? </label><input type="checkbox" id="watermark' + file.filename + '" name="watermark" value="' + file.filename + '" ><div/>');
+                fname = file.filename.split(':').pop();
+                $('#watermarks').append('<div id="wm' + fname + '"><label for="watermark' + fname + '"> Add watermark for ' + fname + '? </label><input type="checkbox" id="watermark' + fname + '" name="watermark" value="' + fname + '" ><div/>');
                 for (let i = 0; i < bsPhotoSelectors.length; i++) {
                     $(bsPhotoSelectors[i]).append($('<option>', {
-                        value: file.filename,
-                        text: file.filename
+                        value: fname,
+                        text: fname
                     }));
                 }
             }
         },
         onremovefile: (error, file) => {
             if (!error) {
-                removeElement('wm' + file.filename);
-                delete imgthumbnails[file.filename];
+                fname = file.filename.split(':').pop();
+                removeElement('wm' + fname);
+                delete imgthumbnails[fname];
                 for (let i = 0; i < bsPhotoSelectors.length; i++) {
-                    if ($(bsPhotoSelectors[i]).val() == file.filename) {
+                    if ($(bsPhotoSelectors[i]).val() == fname) {
                         $(bsPhotoSelectors[i]).val("none").change();
                     }
-                    $(bsPhotoSelectors[i] + " option[value='" + file.filename + "']").remove();
+                    $(bsPhotoSelectors[i] + " option[value='" + fname + "']").remove();
                 } 
                 for (let i = 0; i < tBlocks.length; i++) {
                     if (tBlocks[i].includes("photo")) {
                         var block = i + 1;
-                        removeElement('tbthumbb' + block + file.filename);
+                        removeElement('tbthumbb' + block + fname);
                     }
                 } 
             }
         },
         onpreparefile: (file, output) => {
+            fname = file.filename.split(':').pop();
             var canvas = document.getElementById('hiddencanvas');
             var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -132,16 +152,16 @@ $(document).ready(function () {
                 var newwidth = img.width * scale;
                 canvas.width = newwidth;
                 ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, newwidth, 100);
-                imgthumbnails[file.filename] = canvas.toDataURL();
+                imgthumbnails[fname] = canvas.toDataURL();
 
                 for (let i = 0; i < tBlocks.length; i++) {
                     if (tBlocks[i].includes("photo")) {
                         var block = i + 1;
                         var element = document.getElementById(tBlocks[i]);
-                        var newHTML = '<div id="tbthumbb' + block + file.filename + '" class="tbthumbcontainer">';
-                        newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[file.filename] + '">';
-                        newHTML += '<input type="checkbox" id="tb' + block + file.filename + '" name="imgcheckbox' + block + '" value="' + file.filename + '">'
-                        newHTML += '<label for="tb' + block + file.filename + '">' + file.filename + '</label></div><br>';
+                        var newHTML = '<div id="tbthumbb' + block + fname + '" class="tbthumbcontainer">';
+                        newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[fname] + '">';
+                        newHTML += '<input type="checkbox" id="tb' + block + fname + '" name="imgcheckbox' + block + '" value="' + fname + '">'
+                        newHTML += '<label for="tb' + block + fname + '">' + fname + '</label></div><br>';
                         element.innerHTML += newHTML;
                     }
                 } 
@@ -209,7 +229,8 @@ $(document).ready(function () {
         //check all errors
         var error = false;
         var errormsg = '';
-        var attachedimages = false;
+        var tumblrattachedimages = false;
+        var blueskyattachedimages = false;
         if ($('#tumblr').is(':checked')) {
             if (tBlockIndex > 0) {
                 for (const key in richTxtEditors) {
@@ -221,7 +242,6 @@ $(document).ready(function () {
                 for (let i = 0; i < tBlocks.length; i++) {
                     var block = i + 1;
                     if (tBlocks[i].includes("photo")) {
-                        attachedimages = true;
                         var imgcheckboxes = document.getElementsByName("imgcheckbox" + block);
                         var checked = false;
                         for (let j = 0; j < imgcheckboxes.length; j++) {
@@ -231,6 +251,7 @@ $(document).ready(function () {
                             errormsg += 'Tumblr photo block #' + block + ' has no chosen photos.</br>';
                             error = true;
                         }
+                        tumblrattachedimages = tumblrattachedimages || checked;
                     } else if (tBlocks[i].includes("text")) {
                         if (tTextError[block]) {
                             errormsg += 'Tumblr text block #' + block + ' is over the character limit.</br>';
@@ -238,6 +259,7 @@ $(document).ready(function () {
                         }
                     }
                 }
+                $('#tbhasimages').prop('checked', tumblrattachedimages);
             } else {
                 errormsg += 'Tumblr post can\'t be empty.</br>';
                 error = true;
@@ -258,11 +280,12 @@ $(document).ready(function () {
             }
             for (let i = 0; i < bsPhotoSelectors.length; i++) {
                 if ($(bsPhotoSelectors[i]).val() != "none") {
-                    attachedimages = true;
+                    blueskyattachedimages = true;
                 }
-            } 
+            }
+            $('#bshasimages').prop('checked', blueskyattachedimages);
         }
-        if ($('#images').is(':checked') && !attachedimages) {
+        if ($('#images').is(':checked') && !blueskyattachedimages && !tumblrattachedimages) {
             errormsg += 'Image post has no images attached to post or skeet(s)</br>';
             error = true;
         }
@@ -406,7 +429,7 @@ function addTblock(blocktype) {
     $('#tblocks').append('<div id="tblock' + tBlockIndex + '" name="tblock" class="tblock"></div>');
     $('#tblock' + tBlockIndex).append('<h4>' + blocktype.toUpperCase() + '</h4>');
     $('#tblock' + tBlockIndex).append('<input type="text" id="tbtype' + tBlockIndex + '" name="tbtype" hidden>');
-    $('#tbtype' + tBlockIndex).val(blocktype);
+    $('#tbtype' + tBlockIndex).val(blocktype + ':' + tBlockIndex);
     tBlocks.push('tb' + blocktype + tBlockIndex);
 
 

@@ -40,7 +40,7 @@ class Processpost():
         return re.sub(r'[^\w\s]', '', user_input)  # Removes special characters
 
     def processform(self, data, files, userid):
-        print(data)
+        print(files)
         self.message = ''
 
         title = data.get('title')
@@ -59,6 +59,8 @@ class Processpost():
         tags = ''
         if tumblr:
             tags = data.get('tags')
+        tumblrhasimages = data.get('tbhasimages') != None
+        blueskyhasimages = data.get('bshasimages') != None
 
         validtitle = self.validatetextfield('Title', title, 150)
         validscheduledate = True
@@ -93,6 +95,8 @@ class Processpost():
             cycledate = ''
         elif images and not imagefiles:
             self.message += 'No attached images for image post.' + '\n'
+        elif images and not tumblrhasimages and not blueskyhasimages:
+            self.message += 'No selected images for image post.' + '\n'
         elif tumblr and not tumblrblocklist:
              self.message += 'Tumblr post has no blocks' + '\n'
         elif tumblr and tags == '':
@@ -102,7 +106,7 @@ class Processpost():
                 
              dbpost = Post()
              if self.postid != -1:
-                dbpost = Post.query.get(self.postid)
+                 dbpost = Post.query.get(self.postid)
 
              dbpost.user_id = userid
              dbpost.title = title
@@ -114,7 +118,6 @@ class Processpost():
              dbpost.fortumblr = tumblr
              dbpost.forbluesky = bluesky
              dbpost.tagids= []
-             dbpost = Post(user_id=userid, title=title, publishdate=publishdatetime.astimezone(ZoneInfo("UTC")), repost=repost, cycle=cycle, cycledate=cycledatetime.astimezone(ZoneInfo("UTC")), containsimages=images, fortumblr=tumblr, forbluesky=bluesky, tagids=[])
              if self.postid == -1:
                  db.session.add(dbpost)
 
@@ -174,6 +177,12 @@ class Processpost():
                 #add to list of Image objects
                 dbimg = DBImage(post_id=postid,url=sfilename, width=im.width, height=im.height,mimetype=imgfile.mimetype, ready=processed)
                 processedimagefiles.append(dbimg)
+
+            db.session.add_all(processedimagefiles)
+            db.session.commit()
+        else:
+            self.message += 'Invalid image file(s)' + '\n'
+
         return processedimagefiles
 
     def allowed_file(self, filename):
