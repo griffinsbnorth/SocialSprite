@@ -56,6 +56,7 @@ class Image(db.Model):
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)
     mimetype = db.Column(db.String(128))
+    order = db.Column(db.Integer)
     ready = db.Column(db.Boolean, default=False, nullable=False)
 
 class Tag(db.Model):

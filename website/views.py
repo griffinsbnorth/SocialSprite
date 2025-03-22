@@ -48,6 +48,12 @@ def editpost(postid):
     scheduledatetime = editpost.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
     cycledatetime = editpost.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
 
+    if request.method == 'POST':
+        data = request.form
+        files = request.files
+        postprocessor = Processpost(postid)
+        postprocessor.processform(data, files, current_user.id)
+
     postdata = {
         'id': postid,
         'title': editpost.title, 
@@ -61,12 +67,6 @@ def editpost(postid):
         'bluesky': editpost.forbluesky,
         'files': getimagefiles(postid)
         }
-    
-    if request.method == 'POST':
-        data = request.form
-        files = request.files
-        postprocessor = Processpost(postid)
-        postprocessor.processform(data, files, current_user.id)
 
     return render_template("addpost.html", user=current_user, postdata=postdata, postop='EDIT')
 
@@ -101,46 +101,29 @@ def delete_post():
     post = json.loads(request.data)
     postid = post['postid']
     post = Post.query.get(postid)
+    postprocessor = Processpost(postid)
     if post:
         if post.user_id == current_user.id:
             db.session.delete(post)
             db.session.commit()
+            #delete images associated with post
+            pastimagefiles = DBImage.query.filter(DBImage.post_id == postid).all()
+            for pastimage in pastimagefiles:
+                     postprocessor.delete_image(pastimage)
 
     return jsonify({})
 
 @views.route('/loadfile', methods=['GET'])
 def loadfile():
-    source = request.args.get('source').split(':')
-    filepath = Config.UPLOAD_FOLDER + '/' + source[1]
+    source = request.args.get('source')
+    filepath = Config.UPLOAD_FOLDER + '/' + source
 
     return send_file(filepath)
 
-@views.route('/deletefile', methods=['POST'])
-def deletefile():  
-    post = json.loads(request.data)
-    postid = post['postid']
-    filename = post['filename'].split(':')
-    dbimagefile = DBImage.query.get(int(filename[0]))
-    if dbimagefile:
-        if postid == dbimagefile.post_id:
-            db.session.delete(dbimagefile)
-            db.session.commit()
-
-    duplicates = DBImage.query.filter(DBImage.url == filename[1]).all()
-
-    if not duplicates:
-        filepath = Config.UPLOAD_FOLDER + '/' + filename[1]
-        if os.path.exists(filepath):
-            os.remove(filepath)
-
-    return jsonify({})
-
 def getimagefiles(postid):
-    imagefiles = DBImage.query.filter(DBImage.post_id == postid).all()
-    print(imagefiles)
+    imagefiles = DBImage.query.filter(DBImage.post_id == postid).order_by(DBImage.order).all()
     imagefilelist = []
     for imagefile in imagefiles:
-        imagefilelist.append({'source': str(imagefile.id) + ':' + imagefile.url, 'options': {'type': 'local'}})
+        imagefilelist.append({'source': imagefile.url, 'options': {'type': 'local'}})
 
-    print(imagefilelist)
     return imagefilelist

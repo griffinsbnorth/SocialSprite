@@ -41,6 +41,7 @@ class Processpost():
 
     def processform(self, data, files, userid):
         print(files)
+        print(data)
         self.message = ''
 
         title = data.get('title')
@@ -53,6 +54,7 @@ class Processpost():
         cycle = data.get('cycle') != None
         images = data.get('images') != None
         imagefiles = files.getlist('imgupload')
+        fileorder = json.loads(str(data.get('fileorder')))
         tumblr = data.get('tumblr') != None
         tumblrblocklist = data.getlist('tbtype')
         bluesky = data.get('bluesky') != None
@@ -93,7 +95,7 @@ class Processpost():
         elif not validcycledate:
             self.message += 'Invalid cycle date.' + '\n'
             cycledate = ''
-        elif images and not imagefiles:
+        elif images and not fileorder:
             self.message += 'No attached images for image post.' + '\n'
         elif images and not tumblrhasimages and not blueskyhasimages:
             self.message += 'No selected images for image post.' + '\n'
@@ -123,9 +125,26 @@ class Processpost():
 
              db.session.commit()
 
+             pastimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).all()
+             pastimagesfound = len(pastimagefiles) > 0
              #Prep images for post (if there's images)
              if images:
-                 processedimagefiles = self.processimages(imagefiles,dbpost.id)
+                 #Prep new images
+                 processedimagefiles = self.processimages(imagefiles, dbpost.id, fileorder)
+                 #Prep past images
+                 for pastimage in pastimagefiles:
+                     neworder = fileorder.get(pastimage.url, None)
+                     if neworder != None:
+                         pastimage.order = neworder
+                     else:
+                         self.delete_image(pastimage)
+             else:
+                 #delete any past associated images
+                 for pastimage in pastimagefiles:
+                     self.delete_image(pastimage)
+
+             if pastimagesfound:
+                 db.session.commit()
 
              #Prep Tumblr post blocks
 
@@ -145,7 +164,7 @@ class Processpost():
             'bluesky': bluesky
             }
 
-    def processimages(self, imagefiles, postid):
+    def processimages(self, imagefiles, postid, fileorder):
         validimagefile = True
         processedimagefiles = []
         for imagefile in imagefiles:
@@ -175,7 +194,8 @@ class Processpost():
                 #get watermark
 
                 #add to list of Image objects
-                dbimg = DBImage(post_id=postid,url=sfilename, width=im.width, height=im.height,mimetype=imgfile.mimetype, ready=processed)
+                index = fileorder[imgfile.filename]
+                dbimg = DBImage(post_id=postid,url=sfilename, width=im.width, height=im.height,mimetype=imgfile.mimetype, order=index, ready=processed)
                 processedimagefiles.append(dbimg)
 
             db.session.add_all(processedimagefiles)
@@ -188,4 +208,16 @@ class Processpost():
     def allowed_file(self, filename):
         return '.' in filename and \
                filename.rsplit('.', 1)[1].lower() in current_app.config["ALLOWED_EXTENSIONS"]
+
+    def delete_image(self, imagefile):
+        filename = imagefile.url
+        db.session.delete(imagefile)
+
+        duplicates = DBImage.query.filter(DBImage.url == filename).all()
+
+        if not duplicates:
+            filepath = Config.UPLOAD_FOLDER + '/' + filename
+            if os.path.exists(filepath):
+                os.remove(filepath)
+
 

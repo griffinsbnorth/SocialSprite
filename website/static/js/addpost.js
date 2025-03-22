@@ -82,14 +82,6 @@ $(document).ready(function () {
                 fetch('/loadfile?source=' + source, {
                     method: "GET"
                 }).then(res => res.blob()).then(load);
-            },
-            remove: (source, load, error) => {
-                fetch("/deletefile", {
-                    method: "POST",
-                    body: JSON.stringify({ postid: postdata['id'], filename: source }),
-                }).then((_res) => {
-                    load();
-                }); 
             }
         },
         imageResizeTargetHeight: 1290,
@@ -99,7 +91,43 @@ $(document).ready(function () {
         acceptedFileTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
         storeAsFile: true,
         allowReorder: true,
-        required: true
+        required: true,
+        imageTransformImageFilter: (file) => new Promise(resolve => {
+
+            // no gif mimetype, do transform
+            if (!/image\/gif/.test(file.type)) return resolve(true);
+
+            const reader = new FileReader();
+            reader.onload = () => {
+
+                var arr = new Uint8Array(reader.result),
+                    i, len, length = arr.length, frames = 0;
+
+                // make sure it's a gif (GIF8)
+                if (arr[0] !== 0x47 || arr[1] !== 0x49 ||
+                    arr[2] !== 0x46 || arr[3] !== 0x38) {
+                    // it's not a gif, we can safely transform it
+                    resolve(true);
+                    return;
+                }
+
+                for (i = 0, len = length - 9; i < len, frames < 2; ++i) {
+                    if (arr[i] === 0x00 && arr[i + 1] === 0x21 &&
+                        arr[i + 2] === 0xF9 && arr[i + 3] === 0x04 &&
+                        arr[i + 8] === 0x00 &&
+                        (arr[i + 9] === 0x2C || arr[i + 9] === 0x21)) {
+                        frames++;
+                    }
+                }
+                // if frame count > 1, it's animated, don't transform
+                if (frames > 1) {
+                    return resolve(false);
+                }
+                // do transform
+                resolve(true);
+            }
+            reader.readAsArrayBuffer(file);
+        })
     });
     pond.setOptions({
         fileRenameFunction: (file) => {
@@ -113,7 +141,7 @@ $(document).ready(function () {
         },
         onaddfile: (error, file) => {
             if (!error) {
-                fname = file.filename.split(':').pop();
+                fname = file.filename;
                 $('#watermarks').append('<div id="wm' + fname + '"><label for="watermark' + fname + '"> Add watermark for ' + fname + '? </label><input type="checkbox" id="watermark' + fname + '" name="watermark" value="' + fname + '" ><div/>');
                 for (let i = 0; i < bsPhotoSelectors.length; i++) {
                     $(bsPhotoSelectors[i]).append($('<option>', {
@@ -125,7 +153,7 @@ $(document).ready(function () {
         },
         onremovefile: (error, file) => {
             if (!error) {
-                fname = file.filename.split(':').pop();
+                fname = file.filename;
                 removeElement('wm' + fname);
                 delete imgthumbnails[fname];
                 for (let i = 0; i < bsPhotoSelectors.length; i++) {
@@ -143,25 +171,28 @@ $(document).ready(function () {
             }
         },
         onpreparefile: (file, output) => {
-            fname = file.filename.split(':').pop();
-            var canvas = document.getElementById('hiddencanvas');
+            fname = file.filename;
+            var canvas = document.createElement('canvas');
+            canvas.height = 100;
+            canvas.width = 200;
+            document.getElementById('hiddencanvases').appendChild(canvas);
             var ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
+            imgthumbnails[fname] = canvas;
             var img = new Image();
-
+            
             img.onload = function () {
                 var scale = 100 / img.height;
                 var newwidth = img.width * scale;
                 canvas.width = newwidth;
                 ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, newwidth, 100);
-                imgthumbnails[fname] = canvas.toDataURL();
-
+                
                 for (let i = 0; i < tBlocks.length; i++) {
                     if (tBlocks[i].includes("photo")) {
                         var block = i + 1;
                         var element = document.getElementById(tBlocks[i]);
                         var newHTML = '<div id="tbthumbb' + block + fname + '" class="tbthumbcontainer">';
-                        newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[fname] + '">';
+                        newHTML += '<img class="bsImgThmb" src="' + canvas.toDataURL() + '">';
                         newHTML += '<input type="checkbox" id="tb' + block + fname + '" name="imgcheckbox' + block + '" value="' + fname + '">'
                         newHTML += '<label for="tb' + block + fname + '">' + fname + '</label></div><br>';
                         element.innerHTML += newHTML;
@@ -225,6 +256,13 @@ $(document).ready(function () {
         for (const key in bsrichTxtEditors) {
             event.formData.append('bstext' + key, JSON.stringify(bsrichTxtEditors[key].getContents().ops));
         }
+        var pondfiles = pond.getFiles();
+        var pondfilelist = {};
+        for (let i = 0; i < pondfiles.length; i++) {
+            var fname = pondfiles[i].filename;
+            pondfilelist[fname] = i;
+        }
+        event.formData.append('fileorder', JSON.stringify(pondfilelist));
     });
 
     form.addEventListener('submit', (event) => {
@@ -313,7 +351,7 @@ function addThumbnail(option, thumb) {
     const thumbnail = thumb.previousElementSibling;
     if (option != "none") {
         thumbnail.hidden = false;
-        thumbnail.src = imgthumbnails[option];
+        thumbnail.src = imgthumbnails[option].toDataURL();
     } else {
         thumbnail.hidden = true;
     }
@@ -325,7 +363,7 @@ function getImgOptionCheckboxes(elementname) {
 
     for (const key in imgthumbnails) {
         var newHTML = '<div id="tbthumbb' + tBlockIndex + key + '" class="tbthumbcontainer">';
-        newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[key] + '">';
+        newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[key].toDataURL() + '">';
         newHTML += '<input type="checkbox" id="tb' + tBlockIndex + key + '" name="imgcheckbox' + tBlockIndex + '" value="' + key + '">'
         newHTML += '<label for="tb' + tBlockIndex + key + '">' + key + '</label></div><br>';
         element.innerHTML += newHTML;

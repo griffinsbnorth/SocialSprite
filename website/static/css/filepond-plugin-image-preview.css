@@ -107,10 +107,10 @@
 }
 .filepond--image-bitmap,
 .filepond--image-vector {
-  position: absolute;
-  left: 0;
-  top: 0;
-  will-change: transform;
+    position: absolute;
+    left: 0;
+    top: 0;
+    will-change: auto;
 }
 .filepond--root[data-style-panel-layout~='integrated']
   .filepond--image-preview-wrapper {
