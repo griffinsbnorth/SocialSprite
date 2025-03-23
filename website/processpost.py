@@ -55,6 +55,9 @@ class Processpost():
         images = data.get('images') != None
         imagefiles = files.getlist('imgupload')
         fileorder = json.loads(str(data.get('fileorder')))
+        watermarks = data.getlist('watermark')
+        if watermarks == None:
+            watermarks = []
         tumblr = data.get('tumblr') != None
         tumblrblocklist = data.getlist('tbtype')
         bluesky = data.get('bluesky') != None
@@ -130,12 +133,13 @@ class Processpost():
              #Prep images for post (if there's images)
              if images:
                  #Prep new images
-                 processedimagefiles = self.processimages(imagefiles, dbpost.id, fileorder)
+                 processedimagefiles = self.processimages(imagefiles, dbpost.id, fileorder, watermarks)
                  #Prep past images
                  for pastimage in pastimagefiles:
                      neworder = fileorder.get(pastimage.url, None)
                      if neworder != None:
                          pastimage.order = neworder
+                         pastimage.ready = pastimage.url not in watermarks
                      else:
                          self.delete_image(pastimage)
              else:
@@ -164,7 +168,7 @@ class Processpost():
             'bluesky': bluesky
             }
 
-    def processimages(self, imagefiles, postid, fileorder):
+    def processimages(self, imagefiles, postid, fileorder, watermarks):
         validimagefile = True
         processedimagefiles = []
         for imagefile in imagefiles:
@@ -190,8 +194,7 @@ class Processpost():
                     imgsize = os.stat(imgpath).st_size
                     scale = scale - 0.1
             
-                processed = True
-                #get watermark
+                processed = imgfile.filename not in watermarks
 
                 #add to list of Image objects
                 index = fileorder[imgfile.filename]
