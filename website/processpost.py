@@ -10,7 +10,7 @@ from PIL import Image as PILImage
 from config import Config
 from werkzeug.utils import secure_filename
 from .models import Image as DBImage
-from .models import Post
+from .models import Post, Blueskyskeet
 
 class Processpost():
     FILE_SIZE_LIMIT = 1000000
@@ -61,6 +61,7 @@ class Processpost():
         tumblr = data.get('tumblr') != None
         tumblrblocklist = data.getlist('tbtype')
         bluesky = data.get('bluesky') != None
+        bsskeetsnumber = int(data.get('bsskeetlen'))
         tags = ''
         if tumblr:
             tags = data.get('tags')
@@ -106,6 +107,8 @@ class Processpost():
              self.message += 'Tumblr post has no blocks' + '\n'
         elif tumblr and tags == '':
              self.message += 'Tumblr post needs tags' + '\n'
+        elif bluesky and not bsskeetsnumber:
+             self.message += 'BlueSky post has no skeets' + '\n'
         else:
              processedimagefiles = []
                 
@@ -150,9 +153,33 @@ class Processpost():
              if pastimagesfound:
                  db.session.commit()
 
+             finalimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).order_by(DBImage.order).all()
              #Prep Tumblr post blocks
 
              #Prep BlueSky skeets
+             bsimgs = data.getlist('bsimgs')
+             addbsimages = images and blueskyhasimages
+             deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id, Blueskyskeet.order > bsskeetsnumber).delete()
+             if deletebsresult > 0:
+                 db.session.commit()
+
+             i = 1
+             start = 0
+             end = 4
+             dbskeets = []
+             while i <= bsskeetsnumber:
+                 skeetimgs = []
+                 if addbsimages:
+                     skeetimgs = bsimgs[start:end]
+                     start += 4
+                     end += 4
+                 skeet = json.loads(str(data.get('bstext' + str(i))))
+                 dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
+                 dbskeets.append(dbskeet)
+                 i += 1
+
+             if dbskeets:
+                db.session.commit()
 
         #set success flag
         self.success = (self.message == '')
@@ -223,4 +250,37 @@ class Processpost():
             if os.path.exists(filepath):
                 os.remove(filepath)
 
+    def process_skeet(self, skeet, images, bsimgs, postid, order):
+        dbskeet = Blueskyskeet.query.filter(Blueskyskeet.post_id == postid, Blueskyskeet.order == order ).first()
+        addtodb = not dbskeet
+        if addtodb:
+            dbskeet = Blueskyskeet()
+        imageids = []
+        for bsimg in bsimgs:
+            if bsimg != 'none':
+                for img in images:
+                    if bsimg == img.url:
+                        imageids.append(img.id)
 
+        plaintxt = ''
+        plaintxt = plaintxt.encode("UTF-8")
+        links = []
+        for component in skeet:
+            txtencoded = component['insert'].encode("UTF-8")
+            if 'attributes' in component:
+                urlstart = len(plaintxt)
+                urlend = urlstart + len(component['insert']) - 1
+                link = component['attributes']['link']
+                links.append((link, urlstart, urlend))
+
+            plaintxt += txtencoded
+
+            dbskeet.post_id = postid
+            dbskeet.order = order
+            dbskeet.imageids = imageids
+            dbskeet.text = plaintxt
+            dbskeet.quillops = skeet
+            dbskeet.urls = links
+            if addtodb:
+                db.session.add(dbskeet)
+        return dbskeet

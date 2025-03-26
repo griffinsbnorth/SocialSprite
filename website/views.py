@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, current_app, flash, jsonify, send_file
 from flask_login import login_required, current_user
-from .models import Post
+from .models import Post, Blueskyskeet, Tumblrblock
 from .models import Image as DBImage
 from config import Config
 from .processpost import Processpost
@@ -31,7 +31,9 @@ def addpost():
         'images': True,
         'tumblr': True,
         'bluesky': True,
-        'files': []
+        'files': [],
+        'skeets': [],
+        'bsimgmap': {}
         }
 
     if request.method == 'POST':
@@ -44,15 +46,16 @@ def addpost():
 
 @views.route('/editpost/<int:postid>', methods=['GET', 'POST'])
 def editpost(postid):
-    editpost = Post.query.get(postid)
-    scheduledatetime = editpost.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
-    cycledatetime = editpost.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
-
     if request.method == 'POST':
         data = request.form
         files = request.files
         postprocessor = Processpost(postid)
         postprocessor.processform(data, files, current_user.id)
+
+    editpost = Post.query.get(postid)
+    scheduledatetime = editpost.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
+    cycledatetime = editpost.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
+    skeetsdata = getskeets(postid)
 
     postdata = {
         'id': postid,
@@ -65,7 +68,9 @@ def editpost(postid):
         'images': editpost.containsimages,
         'tumblr': editpost.fortumblr,
         'bluesky': editpost.forbluesky,
-        'files': getimagefiles(postid)
+        'files': getimagefiles(postid),
+        'skeets': skeetsdata['skeets'],
+        'bsimgmap': skeetsdata['bsimgmap']
         }
 
     return render_template("addpost.html", user=current_user, postdata=postdata, postop='EDIT')
@@ -110,6 +115,10 @@ def delete_post():
             pastimagefiles = DBImage.query.filter(DBImage.post_id == postid).all()
             for pastimage in pastimagefiles:
                      postprocessor.delete_image(pastimage)
+            #delete skeets associated with post
+            Blueskyskeet.query.filter(Blueskyskeet.post_id == postid).delete()
+            #delete tumblr blocks associated with post
+            Tumblrblock.query.filter(Tumblrblock.post_id == postid).delete()
 
     return jsonify({})
 
@@ -127,3 +136,26 @@ def getimagefiles(postid):
         imagefilelist.append({'source': imagefile.url, 'options': {'type': 'local'}})
 
     return imagefilelist
+
+def getskeets(postid):
+    skeets = Blueskyskeet.query.filter(Blueskyskeet.post_id == postid).order_by(Blueskyskeet.order).all()
+    skeetsdata = []
+    bsimages = {}
+    selectorindex = 0
+    selectorindexend = 4
+    for skeet in skeets:
+        
+        for imageid in skeet.imageids:
+            imagefile = DBImage.query.get(imageid)
+            bsimages[selectorindex] = imagefile.url
+            selectorindex += 1
+
+        selectorindex = selectorindexend
+        selectorindexend += 4
+        skeetsdata.append(skeet.quillops)
+
+    return {'skeets': skeetsdata, 'bsimgmap': bsimages}
+
+
+
+

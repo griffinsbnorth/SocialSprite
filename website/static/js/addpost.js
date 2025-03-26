@@ -3,6 +3,7 @@ var bsTextError = {};
 var tTextError = {};
 
 //post variables
+var loaded = false;
 var bsPostIndex = 1;
 var tBlockIndex = 0;
 var richTxtEditors = {};
@@ -12,10 +13,13 @@ var tBlocks = [];
 var imgthumbnails = {};
 var bstoolbarOptions;
 var bsoptions;
+var bsimagemap = {};
 
 var pond;
 
 $(document).ready(function () {
+    bsimagemap = postdata['bsimgmap'];
+    console.log(bsimagemap);
     //title
     $('#title').val(postdata['title']);
 
@@ -197,8 +201,13 @@ $(document).ready(function () {
                         newHTML += '<label for="tb' + block + fname + '">' + fname + '</label></div><br>';
                         element.innerHTML += newHTML;
                     }
-                } 
-
+                }
+                for (const bkey in bsimagemap) {
+                    if (bsPhotoSelectors.length >= bkey && bsimagemap[bkey] in imgthumbnails) {
+                        $(bsPhotoSelectors[bkey]).val(bsimagemap[bkey]).change();
+                        delete bsimagemap[bkey];
+                    }
+                }
             }
 
             img.src = URL.createObjectURL(output);
@@ -241,6 +250,14 @@ $(document).ready(function () {
         countChar(1, '#charNum1');
     });
     bsTextError[1] = false;
+    skeets = postdata['skeets'];
+    for (let i = 0; i < skeets.length; i++) {
+        key = i + 1;
+        if (!(key in bsrichTxtEditors)) {
+            addBStext();
+        }
+        bsrichTxtEditors[key].setContents(skeets[i])
+    }
 
     toggleSection('images', 'imgsection');
     toggleSection('tumblr', 'tform');
@@ -263,6 +280,7 @@ $(document).ready(function () {
             pondfilelist[fname] = i;
         }
         event.formData.append('fileorder', JSON.stringify(pondfilelist));
+        event.formData.append('bsskeetlen', bsPostIndex);
     });
 
     form.addEventListener('submit', (event) => {
@@ -338,6 +356,8 @@ $(document).ready(function () {
             return false;
         }
     });
+
+    loaded = true;
 });
 
 function addImgOptions(dropdown) {
@@ -349,7 +369,7 @@ function addImgOptions(dropdown) {
 
 function addThumbnail(option, thumb) {
     const thumbnail = thumb.previousElementSibling;
-    if (option != "none") {
+    if (option != "none" && option in imgthumbnails) {
         thumbnail.hidden = false;
         thumbnail.src = imgthumbnails[option].toDataURL();
     } else {

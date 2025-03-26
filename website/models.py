@@ -7,8 +7,7 @@ from sqlalchemy.sql import func
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     password = db.Column(db.String(150))
-    username = db.Column(db.String(150))
-    posts = db.relationship('Post')
+    username = db.Column(db.String(150), unique=True)
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -26,7 +25,7 @@ class Post(db.Model):
 class Tumblrblock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
-    order = db.Column(db.Integer, default=0)
+    order = db.Column(db.Integer, default=0, unique=True)
     blocktype = db.Column(db.String(32))
     imageids = db.Column(db.JSON)
     text = db.Column(db.String(4096))
@@ -39,15 +38,16 @@ class Tumblrblock(db.Model):
 class Blueskyskeet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
-    order = db.Column(db.Integer, default=0)
+    order = db.Column(db.Integer, default=0, unique=True)
     imageids = db.Column(db.JSON)
     text = db.Column(db.String(512))
-    skeet = db.Column(db.JSON)
-    cid = db.Column(db.String(256))
-    uri = db.Column(db.String(256))
-    cid = db.Column(db.String(256))
-    parenturi = db.Column(db.String(256))
-    parentcid = db.Column(db.String(256))
+    quillops = db.Column(db.JSON)
+    urls = db.Column(db.JSON)
+    cid = db.Column(db.String(256), default="")
+    uri = db.Column(db.String(256), default="")
+    cid = db.Column(db.String(256), default="")
+    parenturi = db.Column(db.String(256), default="")
+    parentcid = db.Column(db.String(256), default="")
 
 class Image(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -56,7 +56,7 @@ class Image(db.Model):
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)
     mimetype = db.Column(db.String(128))
-    order = db.Column(db.Integer)
+    order = db.Column(db.Integer, unique=True)
     ready = db.Column(db.Boolean, default=False, nullable=False)
 
 class Tag(db.Model):
