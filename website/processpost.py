@@ -10,7 +10,7 @@ from PIL import Image as PILImage
 from config import Config
 from werkzeug.utils import secure_filename
 from .models import Image as DBImage
-from .models import Post, Blueskyskeet
+from .models import Post, Blueskyskeet, Tumblrblock
 
 class Processpost():
     FILE_SIZE_LIMIT = 1000000
@@ -19,7 +19,6 @@ class Processpost():
         self.success = True
         self.message = ''
         self.postid = postid
-        self.postdata = {}
 
     def __str__(self):
         return f"{self.message}"
@@ -60,6 +59,9 @@ class Processpost():
             watermarks = []
         tumblr = data.get('tumblr') != None
         tumblrblocklist = data.getlist('tbtype')
+        blogname = data.get('blogname')
+        if blogname == '':
+            blogname = os.getenv("BLOGNAME")
         bluesky = data.get('bluesky') != None
         bsskeetsnumber = int(data.get('bsskeetlen'))
         tags = ''
@@ -126,6 +128,7 @@ class Processpost():
              dbpost.fortumblr = tumblr
              dbpost.forbluesky = bluesky
              dbpost.tagids= []
+             dbpost.blogname = blogname
              if self.postid == -1:
                  db.session.add(dbpost)
 
@@ -154,46 +157,85 @@ class Processpost():
                  db.session.commit()
 
              finalimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).order_by(DBImage.order).all()
+             
              #Prep Tumblr post blocks
+             if tumblr:
+                 addtbimages = images and tumblrhasimages
+                 deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id, Tumblrblock.order > len(tumblrblocklist)).delete()
+                 if deletetbresult > 0:
+                     db.session.commit()
 
-             #Prep BlueSky skeets
-             bsimgs = data.getlist('bsimgs')
-             addbsimages = images and blueskyhasimages
-             deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id, Blueskyskeet.order > bsskeetsnumber).delete()
-             if deletebsresult > 0:
-                 db.session.commit()
+                 dbtblocks = []
+                 tbindex = 1
+                 for tumblrblock in tumblrblocklist:
+                     tbdata = tumblrblock.split(':')
+                     match tbdata[0]:
+                        case 'photo':
+                             if addtbimages:
+                                 tbimgs = data.getlist('imgcheckbox' + tbdata[1])
+                                 dbtblock = self.process_image_tblock(finalimagefiles, tbimgs, dbpost.id, tbindex)
+                                 dbtblocks.append(dbtblock)
+                                 tbindex += 1
+                        case 'text':
+                             textops = json.loads(str(data.get('tbtext' + tbdata[1])))
+                             dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex)
+                             dbtblocks.append(dbtblock)
+                             tbindex += 1
+                        case _:
+                            prefix = 'tb' + tbdata[0] + tbdata[1]
+                            url = data.get(prefix + 'url')
+                            embed = data.get(prefix + 'embed')
+                            if embed == None:
+                                embed = ''
+                            dbtblock = self.process_tblock(tbdata[0], [], url, embed, dbpost.id, tbindex)
+                            dbtblocks.append(dbtblock)
+                            tbindex += 1
+             
+                 if dbtblocks:
+                    db.session.commit()
+             else:
+                 deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id).delete()
+                 if deletetbresult > 0:
+                     db.session.commit()
 
-             i = 1
-             start = 0
-             end = 4
-             dbskeets = []
-             while i <= bsskeetsnumber:
-                 skeetimgs = []
-                 if addbsimages:
-                     skeetimgs = bsimgs[start:end]
-                     start += 4
-                     end += 4
-                 skeet = json.loads(str(data.get('bstext' + str(i))))
-                 dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
-                 dbskeets.append(dbskeet)
-                 i += 1
+             if bluesky:
+                 #Prep BlueSky skeets
+                 bsimgs = data.getlist('bsimgs')
+                 addbsimages = images and blueskyhasimages
+                 deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id, Blueskyskeet.order > bsskeetsnumber).delete()
+                 if deletebsresult > 0:
+                     db.session.commit()
 
-             if dbskeets:
-                db.session.commit()
+                 i = 1
+                 start = 0
+                 end = 4
+                 dbskeets = []
+                 while i <= bsskeetsnumber:
+                     skeetimgs = []
+                     if addbsimages:
+                         skeetimgs = bsimgs[start:end]
+                         start += 4
+                         end += 4
+                     skeet = json.loads(str(data.get('bstext' + str(i))))
+                     dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
+                     dbskeets.append(dbskeet)
+                     i += 1
+
+                 if dbskeets:
+                    db.session.commit()
+             else:
+                 deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id).delete()
+                 if deletebsresult > 0:
+                     db.session.commit()
+
 
         #set success flag
         self.success = (self.message == '')
-        self.postdata = {
-            'title': title, 
-            'scheduledate': scheduledate, 
-            'cycledate': cycledate,
-            'time': time,
-            'repost': repost,
-            'cycle': cycle,
-            'images': images,
-            'tumblr': tumblr,
-            'bluesky': bluesky
-            }
+        if self.success:
+            if self.postid == -1:
+                self.message = 'Post successfully added'
+            else:
+                self.message = 'Post successfully edited'
 
     def processimages(self, imagefiles, postid, fileorder, watermarks):
         validimagefile = True
@@ -275,12 +317,57 @@ class Processpost():
 
             plaintxt += txtencoded
 
-            dbskeet.post_id = postid
-            dbskeet.order = order
-            dbskeet.imageids = imageids
-            dbskeet.text = plaintxt
-            dbskeet.quillops = skeet
-            dbskeet.urls = links
-            if addtodb:
-                db.session.add(dbskeet)
+        dbskeet.post_id = postid
+        dbskeet.order = order
+        dbskeet.imageids = imageids
+        dbskeet.text = plaintxt
+        dbskeet.quillops = skeet
+        dbskeet.urls = links
+        dbskeet.uri = ''
+        dbskeet.cid = ''
+        dbskeet.parenturi = ''
+        dbskeet.parentcid = ''
+        if addtodb:
+            db.session.add(dbskeet)
         return dbskeet
+
+    def process_image_tblock(self, images, tbimgs, postid, order):
+        dbtblock = Tumblrblock.query.filter(Tumblrblock.post_id == postid, Tumblrblock.order == order ).first()
+        addtodb = not dbtblock
+        if addtodb:
+            dbtblock = Tumblrblock()
+        imageids = []
+        for tbimg in tbimgs:
+            for img in images:
+                if tbimg == img.url:
+                    imageids.append(img.id)
+
+        dbtblock.post_id = postid
+        dbtblock.order = order
+        dbtblock.imageids = imageids
+        dbtblock.blocktype = 'photo'
+        dbtblock.quillops = []
+        dbtblock.url = ''
+        dbtblock.embed = ''
+        dbtblock.reblogid = ''
+        if addtodb:
+            db.session.add(dbtblock)
+        return dbtblock
+
+    def process_tblock(self, tbtype, textops, url, embed, postid, order):
+        dbtblock = Tumblrblock.query.filter(Tumblrblock.post_id == postid, Tumblrblock.order == order ).first()
+        addtodb = not dbtblock
+        if addtodb:
+            dbtblock = Tumblrblock()
+
+        dbtblock.post_id = postid
+        dbtblock.order = order
+        dbtblock.imageids = []
+        dbtblock.blocktype = tbtype
+        dbtblock.quillops = textops
+        dbtblock.url = url
+        dbtblock.embed = embed
+        dbtblock.reblogid = ''
+        if addtodb:
+            db.session.add(dbtblock)
+        return dbtblock

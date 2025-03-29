@@ -14,12 +14,13 @@ var imgthumbnails = {};
 var bstoolbarOptions;
 var bsoptions;
 var bsimagemap = {};
+var tbimagemap = {};
 
 var pond;
 
 $(document).ready(function () {
     bsimagemap = postdata['bsimgmap'];
-    console.log(bsimagemap);
+    tbimagemap = postdata['tbimgmap'];
     //title
     $('#title').val(postdata['title']);
 
@@ -165,13 +166,20 @@ $(document).ready(function () {
                         $(bsPhotoSelectors[i]).val("none").change();
                     }
                     $(bsPhotoSelectors[i] + " option[value='" + fname + "']").remove();
-                } 
+                }
                 for (let i = 0; i < tBlocks.length; i++) {
                     if (tBlocks[i].includes("photo")) {
                         var block = i + 1;
+                        if (block in tbimagemap) {
+                            let obj = tbimagemap[block].find(o => o === fname);
+                            if (obj != null) {
+                                let newarray = tbimagemap[block].filter(item => item !== fname);
+                                tbimagemap[block] = newarray;
+                            }
+                        }
                         removeElement('tbthumbb' + block + fname);
                     }
-                } 
+                }
             }
         },
         onpreparefile: (file, output) => {
@@ -184,26 +192,22 @@ $(document).ready(function () {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             imgthumbnails[fname] = canvas;
             var img = new Image();
-            
+
             img.onload = function () {
                 var scale = 100 / img.height;
                 var newwidth = img.width * scale;
                 canvas.width = newwidth;
                 ctx.drawImage(img, 0, 0, img.width, img.height, 0, 0, newwidth, 100);
-                
+
                 for (let i = 0; i < tBlocks.length; i++) {
                     if (tBlocks[i].includes("photo")) {
                         var block = i + 1;
                         var element = document.getElementById(tBlocks[i]);
-                        var newHTML = '<div id="tbthumbb' + block + fname + '" class="tbthumbcontainer">';
-                        newHTML += '<img class="bsImgThmb" src="' + canvas.toDataURL() + '">';
-                        newHTML += '<input type="checkbox" id="tb' + block + fname + '" name="imgcheckbox' + block + '" value="' + fname + '">'
-                        newHTML += '<label for="tb' + block + fname + '">' + fname + '</label></div><br>';
-                        element.innerHTML += newHTML;
+                        getImgOptionCheckboxes(tBlocks[i], block);
                     }
                 }
                 for (const bkey in bsimagemap) {
-                    if (bsPhotoSelectors.length >= bkey && bsimagemap[bkey] in imgthumbnails) {
+                    if (bsPhotoSelectors.length >= parseInt(bkey) && bsimagemap[bkey] in imgthumbnails) {
                         $(bsPhotoSelectors[bkey]).val(bsimagemap[bkey]).change();
                         delete bsimagemap[bkey];
                     }
@@ -221,6 +225,25 @@ $(document).ready(function () {
     $('#addTbAudioBtn').click(function () { addTblock('audio') });
     $('#addTbVideoBtn').click(function () { addTblock('video') });
     $('#removeTblockBtn').click(function () { removeTblock() });
+
+    blocks = postdata['blocks'];
+    for (let j = 0; j < blocks.length; j++) {
+        key = j + 1;
+        blocktype = blocks[j]['blocktype'];
+        addTblock(blocktype);
+        switch (blocktype) {
+            case 'text':
+                richTxtEditors[key].setContents(blocks[j]['text']);
+                break;
+            case 'link':
+                $('#tblink' + key + 'url').val(blocks[j]['url']);
+                break;
+            default:
+                $('#tb' + blocktype + key + 'url').val(blocks[j]['url']);
+                $('#tb' + blocktype + key + 'embed').val(blocks[j]['embed']);
+        }
+    }
+    $('#blogname').val(postdata['blogname']);
 
     //bluesky section
     $('#addBStxtBtn').click(function () { addBStext() });
@@ -256,12 +279,12 @@ $(document).ready(function () {
         if (!(key in bsrichTxtEditors)) {
             addBStext();
         }
-        bsrichTxtEditors[key].setContents(skeets[i])
+        bsrichTxtEditors[key].setContents(skeets[i]);
     }
 
     toggleSection('images', 'imgsection');
     toggleSection('tumblr', 'tform');
-    toggleSection('bluesky', 'bsform');
+    toggleSection('bluesky', 'bsformall');
 
     //form submit
     const form = document.querySelector('form');
@@ -289,6 +312,7 @@ $(document).ready(function () {
         var errormsg = '';
         var tumblrattachedimages = false;
         var blueskyattachedimages = false;
+        var photoblocks = 0;
         if ($('#tumblr').is(':checked')) {
             if (tBlockIndex > 0) {
                 for (const key in richTxtEditors) {
@@ -300,6 +324,7 @@ $(document).ready(function () {
                 for (let i = 0; i < tBlocks.length; i++) {
                     var block = i + 1;
                     if (tBlocks[i].includes("photo")) {
+                        photoblocks += 1;
                         var imgcheckboxes = document.getElementsByName("imgcheckbox" + block);
                         var checked = false;
                         for (let j = 0; j < imgcheckboxes.length; j++) {
@@ -347,7 +372,10 @@ $(document).ready(function () {
             errormsg += 'Image post has no images attached to post or skeet(s)</br>';
             error = true;
         }
-
+        if (!$('#images').is(':checked') && photoblocks == tBlocks.length) {
+            errormsg += 'Tumblr post cannot consist of only photo blocks if there are no images</br>';
+            error = true;
+        }
 
 
         if (error) {
@@ -377,18 +405,41 @@ function addThumbnail(option, thumb) {
     }
 };
 
-function getImgOptionCheckboxes(elementname) {
+function getImgOptionCheckboxes(elementname, order) {
     const element = document.getElementById(elementname);
     element.innerHTML = '';
 
     for (const key in imgthumbnails) {
-        var newHTML = '<div id="tbthumbb' + tBlockIndex + key + '" class="tbthumbcontainer">';
+        var newHTML = '<div id="tbthumbb' + order + key + '" class="tbthumbcontainer">';
         newHTML += '<img class="bsImgThmb" src="' + imgthumbnails[key].toDataURL() + '">';
-        newHTML += '<input type="checkbox" id="tb' + tBlockIndex + key + '" name="imgcheckbox' + tBlockIndex + '" value="' + key + '">'
-        newHTML += '<label for="tb' + tBlockIndex + key + '">' + key + '</label></div><br>';
+        newHTML += '<input type="checkbox" id="tb' + order + key + '" name="imgcheckbox' + order + '" value="' + key + '" onchange="toggleImgOptionCheckbox(this, ' + order + ')">'
+        newHTML += '<label for="tb' + order + key + '">' + key + '</label></div><br>';
         element.innerHTML += newHTML;
+        if (order in tbimagemap) {
+            let obj = tbimagemap[order].find(o => o === key);
+            if (obj != null) {
+                var imgcheckbox = document.getElementById('tb' + order + key);
+                imgcheckbox.setAttribute("checked", "checked");
+            }
+        }
     }
 };
+
+function toggleImgOptionCheckbox(element, order) {
+    if (element.checked) {
+        if (order in tbimagemap) {
+            tbimagemap[order].push(element.value);
+        } else {
+            tbimagemap[order] = [element.value];
+        }
+    } else {
+        let obj = tbimagemap[order].find(o => o === element.value);
+        if (obj != null) {
+            let newarray = tbimagemap[order].filter(item => item !== element.value);
+            tbimagemap[order] = newarray;
+        }
+    }
+}
 
 function toggleSection(val, section) {
     const formCheckbox = document.getElementById(val);
@@ -520,18 +571,18 @@ function addTblock(blocktype) {
             break;
         case "photo":
             $('#tblock' + tBlockIndex).append('<div id="tbphoto' + tBlockIndex + '" name="tbphoto' + tBlockIndex + '" class="tbphoto"></div>');
-            getImgOptionCheckboxes('tbphoto' + tBlockIndex);
+            getImgOptionCheckboxes('tbphoto' + tBlockIndex, tBlockIndex);
             break;
         case "link":
-            $('#tblock' + tBlockIndex).append('<label for="tblink' + bsPostIndex + 'url">url:</label><input type="url" id="tblink' + bsPostIndex + 'url" name="tblink' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
+            $('#tblock' + tBlockIndex).append('<label for="tblink' + tBlockIndex + 'url">url:</label><input type="url" id="tblink' + tBlockIndex + 'url" name="tblink' + tBlockIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
             break;
         case "audio":
-            $('#tblock' + tBlockIndex).append('<label for="tbaudio' + bsPostIndex + 'url">url:</label><input type="url" id="tbaudio' + bsPostIndex + 'url" name="tbaudio' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
-            $('#tblock' + tBlockIndex).append('<label for="tbaudio' + bsPostIndex + 'embed">Embed HTML Code:</label><input type="text" id="tbaudio' + bsPostIndex + 'embed" name="tbaudio' + bsPostIndex + 'embed" class="form-control">');
+            $('#tblock' + tBlockIndex).append('<label for="tbaudio' + tBlockIndex + 'url">url:</label><input type="url" id="tbaudio' + tBlockIndex + 'url" name="tbaudio' + tBlockIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
+            $('#tblock' + tBlockIndex).append('<label for="tbaudio' + tBlockIndex + 'embed">Embed HTML Code:</label><input type="text" id="tbaudio' + tBlockIndex + 'embed" name="tbaudio' + tBlockIndex + 'embed" class="form-control">');
             break;
         case "video":
-            $('#tblock' + tBlockIndex).append('<label for="tbvideo' + bsPostIndex + 'url">url:</label><input type="url" id="tbvideo' + bsPostIndex + 'url" name="tbvideo' + bsPostIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
-            $('#tblock' + tBlockIndex).append('<label for="tbvideo' + bsPostIndex + 'embed">Embed HTML Code:</label><input type="text" id="tbvideo' + bsPostIndex + 'embed" name="tbvideo' + bsPostIndex + 'embed" class="form-control">');
+            $('#tblock' + tBlockIndex).append('<label for="tbvideo' + tBlockIndex + 'url">url:</label><input type="url" id="tbvideo' + tBlockIndex + 'url" name="tbvideo' + tBlockIndex + 'url" placeholder="https:\/\/example.com\/" class="form-control" required>');
+            $('#tblock' + tBlockIndex).append('<label for="tbvideo' + tBlockIndex + 'embed">Embed HTML Code:</label><input type="text" id="tbvideo' + tBlockIndex + 'embed" name="tbvideo' + tBlockIndex + 'embed" class="form-control">');
     }
 };
 

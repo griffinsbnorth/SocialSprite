@@ -33,7 +33,10 @@ def addpost():
         'bluesky': True,
         'files': [],
         'skeets': [],
-        'bsimgmap': {}
+        'bsimgmap': {},
+        'blocks': [],
+        'tbimgmap': {},
+        'blogname': ''
         }
 
     if request.method == 'POST':
@@ -41,6 +44,10 @@ def addpost():
         files = request.files
         postprocessor = Processpost()
         postprocessor.processform(data, files, current_user.id)
+        if postprocessor.success:
+            flash(postprocessor.message, category='success')
+        else:
+            flash(postprocessor.message, category='error')
 
     return render_template("addpost.html", user=current_user, postdata=postdata, postop='ADD')
 
@@ -51,11 +58,16 @@ def editpost(postid):
         files = request.files
         postprocessor = Processpost(postid)
         postprocessor.processform(data, files, current_user.id)
+        if postprocessor.success:
+            flash(postprocessor.message, category='success')
+        else:
+            flash(postprocessor.message, category='error')
 
     editpost = Post.query.get(postid)
     scheduledatetime = editpost.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
     cycledatetime = editpost.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
     skeetsdata = getskeets(postid)
+    tumblrdata = gettumblrblocks(postid)
 
     postdata = {
         'id': postid,
@@ -70,7 +82,10 @@ def editpost(postid):
         'bluesky': editpost.forbluesky,
         'files': getimagefiles(postid),
         'skeets': skeetsdata['skeets'],
-        'bsimgmap': skeetsdata['bsimgmap']
+        'bsimgmap': skeetsdata['bsimgmap'],
+        'blocks': tumblrdata['blocks'],
+        'tbimgmap': tumblrdata['tbimgmap'],
+        'blogname': editpost.blogname
         }
 
     return render_template("addpost.html", user=current_user, postdata=postdata, postop='EDIT')
@@ -147,7 +162,8 @@ def getskeets(postid):
         
         for imageid in skeet.imageids:
             imagefile = DBImage.query.get(imageid)
-            bsimages[selectorindex] = imagefile.url
+            if imagefile:
+                bsimages[selectorindex] = imagefile.url
             selectorindex += 1
 
         selectorindex = selectorindexend
@@ -155,6 +171,24 @@ def getskeets(postid):
         skeetsdata.append(skeet.quillops)
 
     return {'skeets': skeetsdata, 'bsimgmap': bsimages}
+
+def gettumblrblocks(postid):
+    blocks = Tumblrblock.query.filter(Tumblrblock.post_id == postid).order_by(Tumblrblock.order).all()
+    tumblrdata = []
+    tbimages = {}
+    for block in blocks:
+        imagelist = []
+        for imageid in block.imageids:
+            imagefile = DBImage.query.get(imageid)
+            if imagefile:
+                imagelist.append(imagefile.url)
+        if imagelist:
+            tbimages[str(block.order)] = imagelist
+
+        blockdata = {'blocktype': block.blocktype, 'text': block.quillops, 'url': block.url, 'embed': block.embed}
+        tumblrdata.append(blockdata)
+
+    return {'blocks': tumblrdata, 'tbimgmap': tbimages}
 
 
 

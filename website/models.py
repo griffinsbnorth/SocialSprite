@@ -21,31 +21,29 @@ class Post(db.Model):
     fortumblr = db.Column(db.Boolean, default=True, nullable=False)
     forbluesky = db.Column(db.Boolean, default=True, nullable=False)
     tagids = db.Column(db.JSON, nullable=True)
+    blogname = db.Column(db.String(150), default="")
 
 class Tumblrblock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
-    order = db.Column(db.Integer, default=0, unique=True)
-    blocktype = db.Column(db.String(32))
+    order = db.Column(db.Integer, default=0)
+    blocktype = db.Column(db.String(32), default="")
     imageids = db.Column(db.JSON)
-    text = db.Column(db.String(4096))
-    url = db.Column(db.String(256))
-    blogname = db.Column(db.String(150))
-    embed = db.Column(db.String(512))
-    content = db.Column(db.JSON)
-    reblogid = db.Column(db.String(512))
+    url = db.Column(db.String(256), default="")
+    embed = db.Column(db.String(512), default="")
+    quillops = db.Column(db.JSON)
+    reblogid = db.Column(db.String(512), default="")
 
 class Blueskyskeet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
-    order = db.Column(db.Integer, default=0, unique=True)
+    order = db.Column(db.Integer, default=0)
     imageids = db.Column(db.JSON)
     text = db.Column(db.String(512))
     quillops = db.Column(db.JSON)
     urls = db.Column(db.JSON)
     cid = db.Column(db.String(256), default="")
     uri = db.Column(db.String(256), default="")
-    cid = db.Column(db.String(256), default="")
     parenturi = db.Column(db.String(256), default="")
     parentcid = db.Column(db.String(256), default="")
 
@@ -56,7 +54,7 @@ class Image(db.Model):
     width = db.Column(db.Integer)
     height = db.Column(db.Integer)
     mimetype = db.Column(db.String(128))
-    order = db.Column(db.Integer, unique=True)
+    order = db.Column(db.Integer)
     ready = db.Column(db.Boolean, default=False, nullable=False)
 
 class Tag(db.Model):
