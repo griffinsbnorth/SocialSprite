@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, current_app, flash, jsonify, send_file
 from flask_login import login_required, current_user
-from .models import Post, Blueskyskeet, Tumblrblock
+from .models import Post, Blueskyskeet, Tumblrblock, Tag
 from .models import Image as DBImage
 from config import Config
 from .processpost import Processpost
@@ -36,7 +36,10 @@ def addpost():
         'bsimgmap': {},
         'blocks': [],
         'tbimgmap': {},
-        'blogname': ''
+        'blogname': '',
+        'tags': '',
+        'toptbtags': gettoptags('tumblr'),
+        'topbstags': gettoptags('bluesky')
         }
 
     if request.method == 'POST':
@@ -85,7 +88,10 @@ def editpost(postid):
         'bsimgmap': skeetsdata['bsimgmap'],
         'blocks': tumblrdata['blocks'],
         'tbimgmap': tumblrdata['tbimgmap'],
-        'blogname': editpost.blogname
+        'blogname': editpost.blogname,
+        'tags': ','.join(editpost.tumblrtags),
+        'toptbtags': gettoptags('tumblr'),
+        'topbstags': gettoptags('bluesky')
         }
 
     return render_template("addpost.html", user=current_user, postdata=postdata, postop='EDIT')
@@ -124,6 +130,13 @@ def delete_post():
     postprocessor = Processpost(postid)
     if post:
         if post.user_id == current_user.id:
+            for ttag in post.tumblrtags:
+                dbtag = Tag.query.filter(Tag.tag == ttag, Tag.tagtype == 'tumblr').first()
+                if dbtag:
+                    dbtag.count -= 1
+                    if dbtag.count == 0:
+                        db.session.delete(dbtag)
+
             db.session.delete(post)
             db.session.commit()
             #delete images associated with post
@@ -131,6 +144,16 @@ def delete_post():
             for pastimage in pastimagefiles:
                      postprocessor.delete_image(pastimage)
             #delete skeets associated with post
+            dbskeets = Blueskyskeet.query.filter(Blueskyskeet.post_id == postid)
+            for dbskeet in dbskeets:
+                for bstag in dbskeet.tags:
+                    dbtag = Tag.query.filter(Tag.tag == bstag['tag'], Tag.tagtype == 'bluesky').first()
+                    if dbtag:
+                        dbtag.count -= 1
+                        if dbtag.count == 0:
+                            db.session.delete(dbtag)
+                            db.session.commit()
+
             Blueskyskeet.query.filter(Blueskyskeet.post_id == postid).delete()
             #delete tumblr blocks associated with post
             Tumblrblock.query.filter(Tumblrblock.post_id == postid).delete()
@@ -190,6 +213,12 @@ def gettumblrblocks(postid):
 
     return {'blocks': tumblrdata, 'tbimgmap': tbimages}
 
+def gettoptags(tagtype):
+    toptags = Tag.query.filter(Tag.tagtype == tagtype).order_by(Tag.count.desc()).limit(10).all()
+    toptaglist = []
+    for toptag in toptags:
+        toptaglist.append(toptag.tag)
+    return toptaglist
 
 
 

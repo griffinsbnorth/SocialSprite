@@ -244,6 +244,10 @@ $(document).ready(function () {
         }
     }
     $('#blogname').val(postdata['blogname']);
+    $('#ttags').val(postdata['tags']);
+
+    topTagsButton('#topttags', postdata['toptbtags'], 'tumblr');
+    topTagsButton('#topbstags', postdata['topbstags'], 'bluesky');
 
     //bluesky section
     $('#addBStxtBtn').click(function () { addBStext() });
@@ -372,7 +376,7 @@ $(document).ready(function () {
             errormsg += 'Image post has no images attached to post or skeet(s)</br>';
             error = true;
         }
-        if (!$('#images').is(':checked') && photoblocks == tBlocks.length) {
+        if (!$('#images').is(':checked') && $('#tumblr').is(':checked') && photoblocks == tBlocks.length) {
             errormsg += 'Tumblr post cannot consist of only photo blocks if there are no images</br>';
             error = true;
         }
@@ -387,6 +391,27 @@ $(document).ready(function () {
 
     loaded = true;
 });
+
+function topTagsButton(tagdiv, tags, tagtype) {
+    for (let i = 0; i < tags.length; i++) {
+        $(tagdiv).append('<button type="button" onclick="copyPasteTag(\'' + tags[i] + '\', \'' + tagtype +'\')">' + tags[i] + '</button> ');
+    }
+}
+
+function copyPasteTag(tag, tagtype) {
+    if (tagtype == 'tumblr') {
+        var oldvalue = $('#ttags').val();
+        var newvalue = '';
+        if (oldvalue.trim().length > 0) {
+            newvalue += ',';
+        }
+        newvalue += tag;
+        $('#ttags').val(oldvalue + newvalue);
+    } else {
+        var len = bsrichTxtEditors[1].getText().length - 1;
+        bsrichTxtEditors[1].insertText(len, ' #' + tag);
+    }
+}
 
 function addImgOptions(dropdown) {
     dropdown.innerHTML = '<option value="none">None</option>';

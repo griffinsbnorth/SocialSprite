@@ -20,7 +20,7 @@ class Post(db.Model):
     containsimages = db.Column(db.Boolean, default=False, nullable=False)
     fortumblr = db.Column(db.Boolean, default=True, nullable=False)
     forbluesky = db.Column(db.Boolean, default=True, nullable=False)
-    tagids = db.Column(db.JSON, nullable=True)
+    tumblrtags = db.Column(db.JSON, nullable=True)
     blogname = db.Column(db.String(150), default="")
 
 class Tumblrblock(db.Model):
@@ -42,6 +42,8 @@ class Blueskyskeet(db.Model):
     text = db.Column(db.String(512))
     quillops = db.Column(db.JSON)
     urls = db.Column(db.JSON)
+    mentions = db.Column(db.JSON)
+    tags = db.Column(db.JSON)
     cid = db.Column(db.String(256), default="")
     uri = db.Column(db.String(256), default="")
     parenturi = db.Column(db.String(256), default="")
@@ -62,6 +64,7 @@ class Tag(db.Model):
     tag = db.Column(db.String(300))
     tagtype = db.Column(db.String(32))
     count = db.Column(db.Integer, default=1)
+    date = db.Column(db.DateTime(timezone=True), default=func.now())
 
 class Postjob(db.Model):
     id = db.Column(db.Integer, primary_key=True)

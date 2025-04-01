@@ -1,4 +1,5 @@
 from flask import current_app
+import re
 import os
 from atproto import models
 from resizeimage import resizeimage
@@ -10,7 +11,7 @@ from PIL import Image as PILImage
 from config import Config
 from werkzeug.utils import secure_filename
 from .models import Image as DBImage
-from .models import Post, Blueskyskeet, Tumblrblock
+from .models import Post, Blueskyskeet, Tumblrblock, Tag
 
 class Processpost():
     FILE_SIZE_LIMIT = 1000000
@@ -127,7 +128,7 @@ class Processpost():
              dbpost.containsimages = images
              dbpost.fortumblr = tumblr
              dbpost.forbluesky = bluesky
-             dbpost.tagids= []
+             dbpost.tumblrtags= []
              dbpost.blogname = blogname
              if self.postid == -1:
                  db.session.add(dbpost)
@@ -193,6 +194,14 @@ class Processpost():
              
                  if dbtblocks:
                     db.session.commit()
+
+                 #Prep Tumblr Tags
+                 tags = data.get('tags').split(',')
+                 processedtags = self.process_tags(tags, 'tumblr')
+                 if processedtags:
+                     dbpost.tumblrtags = processedtags
+                     db.session.commit()
+
              else:
                  deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id).delete()
                  if deletetbresult > 0:
@@ -223,6 +232,7 @@ class Processpost():
 
                  if dbskeets:
                     db.session.commit()
+
              else:
                  deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id).delete()
                  if deletebsresult > 0:
@@ -313,7 +323,11 @@ class Processpost():
                 urlstart = len(plaintxt)
                 urlend = urlstart + len(component['insert']) - 1
                 link = component['attributes']['link']
-                links.append((link, urlstart, urlend))
+                links.append({
+                    "start": urlstart,
+                    "end": urlend,
+                    "link": link
+                })
 
             plaintxt += txtencoded
 
@@ -323,6 +337,8 @@ class Processpost():
         dbskeet.text = plaintxt
         dbskeet.quillops = skeet
         dbskeet.urls = links
+        dbskeet.mentions = self.parse_mentions(plaintxt)
+        dbskeet.tags = self.parse_hashtags(plaintxt)
         dbskeet.uri = ''
         dbskeet.cid = ''
         dbskeet.parenturi = ''
@@ -371,3 +387,50 @@ class Processpost():
         if addtodb:
             db.session.add(dbtblock)
         return dbtblock
+
+    def process_tags(self, tags, tagtype):
+        processedtags = []
+        for tag in tags:
+            strippedtag = tag.strip()
+            dbtag = Tag.query.filter(Tag.tag == strippedtag, Tag.tagtype == tagtype ).first()
+            if dbtag:
+                dbtag.count = dbtag.count + 1
+            else:
+                dbtag = Tag(tag = strippedtag, tagtype = tagtype, count = 1)
+                db.session.add(dbtag)
+            processedtags.append(dbtag.tag)
+
+        return processedtags
+
+    def parse_hashtags(self, text: str):
+        spans = []
+        tags = []
+
+        hashtag_regex = rb"#(\w+)"
+        text_bytes = text
+        for m in re.finditer(hashtag_regex, text_bytes):
+            tag = m.group(1).decode("UTF-8")
+            tags.append(tag)
+            spans.append({
+                "start": m.start(1),
+                "end": m.end(1),
+                "tag": tag
+            })
+        processedtags = self.process_tags(tags, "bluesky")
+        if processedtags:
+            db.session.commit()
+        return spans
+
+    #function from Bluesky documentation: https://docs.bsky.app/docs/advanced-guides/post-richtext#rich-text-facets
+    def parse_mentions(self, text: str):
+        spans = []
+        # regex based on: https://atproto.com/specs/handle#handle-identifier-syntax
+        mention_regex = rb"[$|\W](@([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
+        text_bytes = text
+        for m in re.finditer(mention_regex, text_bytes):
+            spans.append({
+                "start": m.start(1),
+                "end": m.end(1),
+                "handle": m.group(1)[1:].decode("UTF-8")
+            })
+        return spans
