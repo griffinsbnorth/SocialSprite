@@ -8,9 +8,38 @@
     <div class="postspageitem">
         <div class="leftside">
             <h4>{{ post.title }}</h4>
+            {% if post.fortumblr %}
+            <b>TUMBLR</b>
+            {% endif %}
+            {% if post.forbluesky %}
+            <b>BLUESKY</b>
+            {% endif %}
+        </div>
+        <div class="centersection">
+            <b>Repost:</b>
+            <label class="switch">
+                {% if post.repost %}
+                <input type="checkbox" checked="{{ post.repost }}" onClick="editrepost(this, {{ post.id }}, {{ pagination.page }})">
+                {% else %}
+                <input type="checkbox" onClick="editrepost(this, {{ post.id }}, {{ pagination.page }})">
+                {% endif %}
+                <span class="slider round"></span>
+            </label>
+            <b>Cycle:</b>
+            <label class="switch">
+                {% if post.cycle %}
+                <input type="checkbox" checked="{{ post.cycle }}" onClick="editcycle(this, {{ post.id }}, {{ pagination.page }})">
+                {% else %}
+                <input type="checkbox" onClick="editcycle(this, {{ post.id }}, {{ pagination.page }})">
+                {% endif %}
+                <span class="slider round"></span>
+            </label>
+            {% if post.cycle %}
+            {{ post.cycledate }}
+            {% endif %}
         </div>
         <div class="rightside">
-            {{ post.publishdate }}
+            <b>{{ post.publishdate }}</b>
             <a href="{{ url_for('views.editpost', postid=post.id) }}">EDIT</a>
             <button type="button" class="close" onClick="deletepost({{ post.id }}, {{ pagination.page }})">
                 <span aria-hidden="true">&times;</span>
@@ -61,6 +90,22 @@
                 window.location.href = "/posts?page=" + currentpage;
             });
         }
+    }
+    function editrepost(checked, postid, currentpage) {
+        fetch("/editrepost", {
+            method: "POST",
+            body: JSON.stringify({ postid: postid, repost: checked.checked }),
+        }).then((_res) => {
+            window.location.href = "/posts?page=" + currentpage;
+        });
+    }
+    function editcycle(checked, postid, currentpage) {
+        fetch("/editcycle", {
+            method: "POST",
+            body: JSON.stringify({ postid: postid, cycle: checked.checked }),
+        }).then((_res) => {
+            window.location.href = "/posts?page=" + currentpage;
+        });
     }
 </script>
 {% endblock %}

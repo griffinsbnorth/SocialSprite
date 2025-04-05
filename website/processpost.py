@@ -4,6 +4,7 @@ import os
 from atproto import models
 from resizeimage import resizeimage
 import datetime
+from datetime import timedelta
 from zoneinfo import ZoneInfo
 from . import db
 import json
@@ -11,7 +12,7 @@ from PIL import Image as PILImage
 from config import Config
 from werkzeug.utils import secure_filename
 from .models import Image as DBImage
-from .models import Post, Blueskyskeet, Tumblrblock, Tag
+from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob
 
 class Processpost():
     FILE_SIZE_LIMIT = 1000000
@@ -238,7 +239,8 @@ class Processpost():
                  if deletebsresult > 0:
                      db.session.commit()
 
-
+        #create post job
+        self.generate_post_jobs(dbpost)
         #set success flag
         self.success = (self.message == '')
         if self.success:
@@ -434,3 +436,40 @@ class Processpost():
                 "handle": m.group(1)[1:].decode("UTF-8")
             })
         return spans
+
+    def generate_post_jobs(self, post: Post):
+        dbpostjobs = []
+        posttitle = post.title + ': '
+        if post.fortumblr:
+            posttitle += "Tumblr "
+        if post.forbluesky:
+            posttitle += "BlueSky "
+        dbpostjob = Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == False, Postjob.published == False).first()
+        addtodb = not dbpostjob
+        if addtodb:
+            dbpostjob = Postjob()
+        dbpostjobs.append(dbpostjob)
+
+        dbpostjob.user_id = post.user_id
+        dbpostjob.post_id = post.id
+        dbpostjob.title = posttitle
+        dbpostjob.publishdate = post.publishdate
+        dbpostjob.published = False
+        dbpostjob.repost = False
+
+        if addtodb:
+            db.session.add(dbpostjob)
+
+        if (post.repost):
+            Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).delete()
+            noontime = post.publishdate + timedelta(hours=5)
+            eveningtime = noontime + timedelta(hours=6)
+            dbpostjob_noon = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = noontime, repost = True, published = False)
+            dbpostjob_evening = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = eveningtime, repost = True, published = False)
+            dbpostjobs.append(dbpostjob_noon)
+            dbpostjobs.append(dbpostjob_evening)
+            db.session.add(dbpostjob_noon)
+            db.session.add(dbpostjob_evening)
+
+        db.session.commit()
+        return dbpostjobs

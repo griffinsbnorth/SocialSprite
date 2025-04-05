@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, current_app, flash, jsonify, send_file
 from flask_login import login_required, current_user
-from .models import Post, Blueskyskeet, Tumblrblock, Tag
+from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob
 from .models import Image as DBImage
 from config import Config
 from .processpost import Processpost
@@ -100,9 +100,10 @@ def editpost(postid):
 @login_required
 def posts():
     currentpage = request.args.get('page', 1, type=int)
-    pagination = Post.query.filter(Post.user_id == current_user.id).order_by(Post.publishdate).paginate(page=currentpage, per_page=2)
+    pagination = Post.query.filter(Post.user_id == current_user.id).order_by(Post.publishdate).paginate(page=currentpage, per_page=15)
     for item in pagination.items:
         item.publishdate = item.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
+        item.cycledate = item.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
 
     return render_template("posts.html", user=current_user, pagination=pagination)
 
@@ -117,10 +118,12 @@ def watchers():
 @views.route('/queue', methods=['GET', 'POST'])
 @login_required
 def queuepage():
-    if request.method == 'POST':
-        data = request.files
-        print(data)
-    return render_template("queue.html", user=current_user)
+    currentpage = request.args.get('page', 1, type=int)
+    pagination = Postjob.query.filter(Postjob.user_id == current_user.id).order_by(Postjob.publishdate).paginate(page=currentpage, per_page=15)
+    for item in pagination.items:
+        item.publishdate = item.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
+
+    return render_template("queue.html", user=current_user, pagination=pagination)
 
 @views.route('/deletepost', methods=['POST'])
 def delete_post():  
@@ -157,6 +160,35 @@ def delete_post():
             Blueskyskeet.query.filter(Blueskyskeet.post_id == postid).delete()
             #delete tumblr blocks associated with post
             Tumblrblock.query.filter(Tumblrblock.post_id == postid).delete()
+            #delete unpublished postjobs
+            Postjob.query.filter(Postjob.post_id == postid, Postjob.published == False).delete()
+            db.session.commit()
+
+    return jsonify({})
+
+@views.route('/editrepost', methods=['POST'])
+def edit_repost():  
+    post = json.loads(request.data)
+    postid = post['postid']
+    repost = post['repost']
+    post = Post.query.get(postid)
+    if post:
+        if post.user_id == current_user.id:
+            post.repost = repost
+            db.session.commit()
+
+    return jsonify({})
+
+@views.route('/editcycle', methods=['POST'])
+def edit_cycle():  
+    post = json.loads(request.data)
+    postid = post['postid']
+    cycle = post['cycle']
+    post = Post.query.get(postid)
+    if post:
+        if post.user_id == current_user.id:
+            post.cycle = cycle
+            db.session.commit()
 
     return jsonify({})
 

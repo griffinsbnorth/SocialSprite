@@ -2,4 +2,73 @@
 {% block title %}Queue{% endblock %}
 {% block content %}
 <h1>QUEUE</h1>
-{% endblock %}
+<h2>page {{ pagination.page }}</h2>
+<div class="postjobspage" id="postjobs">
+    {% for postjob in pagination.items %}
+    {% if postjob.repost %}
+    <div class="postjobspageitem repost">
+        <div class="leftside">
+            <h4>{{ postjob.title }}</h4>
+            <b>REPOST</b>
+        </div>
+        <div class="rightside">
+            <b>{{ postjob.publishdate }}</b>
+            {% if postjob.published %}
+            <b style="color:forestgreen;">PUBLISHED</b>
+            {% else %}
+            <b style="color:firebrick;">UNPUBLISHED</b>
+            <a href="{{ url_for('views.editpost', postid=postjob.post_id) }}">EDIT POST</a>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="postjobspageitem">
+        <div class="leftside">
+            <h4>{{ postjob.title }}</h4>
+            <b>POST</b>
+        </div>
+        <div class="rightside">
+            {{ postjob.publishdate }}
+            {% if postjob.published %}
+            <b style="color:forestgreen;">PUBLISHED</b>
+            {% else %}
+            <b style="color:firebrick;">UNPUBLISHED</b>
+            <a href="{{ url_for('views.editpost', postid=postjob.post_id) }}">EDIT POST</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+<div class="pagination">
+    {% if pagination.has_prev %}
+    <span>
+        <a class='page-number' href="{{ url_for('views.queuepage', page=pagination.prev_num) }}">
+            {{ '<<<' }}
+        </a>
+    </span>
+    {% endif %}
+
+    {% for number in pagination.iter_pages() %}
+    {% if pagination.page != number %}
+    <span>
+        <a class='page-number'
+           href="{{ url_for('views.queuepage', page=number) }}">
+            {{ number }}
+        </a>
+    </span>
+    {% else %}
+    <span class='current-page-number'>{{ number }}</span>
+    {% endif %}
+    {% endfor %}
+
+    {% if pagination.has_next %}
+    <span>
+        <a class='page-number'
+           href="{{ url_for('views.queuepage', page=pagination.next_num) }}">
+            {{ '>>>' }}
+        </a>
+    </span>
+    </div>
+    {% endif %}
+    {% endblock %}

@@ -68,6 +68,7 @@ class Tag(db.Model):
 
 class Postjob(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     post_id = db.Column(db.Integer, db.ForeignKey('post.id'))
     title = db.Column(db.String(150))
     publishdate = db.Column(db.DateTime(timezone=True), default=func.now())
