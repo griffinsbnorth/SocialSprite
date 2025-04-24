@@ -147,7 +147,7 @@ $(document).ready(function () {
         onaddfile: (error, file) => {
             if (!error) {
                 fname = file.filename;
-                $('#watermarks').append('<div id="wm' + fname + '"><label for="watermark' + fname + '"> Add watermark for ' + fname + '? </label><input type="checkbox" id="watermark' + fname + '" name="watermark" value="' + fname + '" ><div/>');
+                //$('#watermarks').append('<div id="wm' + fname + '"><label for="watermark' + fname + '"> Add watermark for ' + fname + '? </label><input type="checkbox" id="watermark' + fname + '" name="watermark" value="' + fname + '" ><div/>');
                 for (let i = 0; i < bsPhotoSelectors.length; i++) {
                     $(bsPhotoSelectors[i]).append($('<option>', {
                         value: fname,

@@ -25,7 +25,7 @@ def addpost():
         'title': '', 
         'scheduledate': '', 
         'cycledate': '',
-        'time': '00:00',
+        'time': '08:00',
         'repost': True,
         'cycle': True,
         'images': True,
@@ -172,10 +172,13 @@ def edit_repost():
     postid = post['postid']
     repost = post['repost']
     post = Post.query.get(postid)
+    postprocessor = Processpost(postid)
     if post:
         if post.user_id == current_user.id:
             post.repost = repost
             db.session.commit()
+            postprocessor.generate_post_jobs(post)
+            
 
     return jsonify({})
 

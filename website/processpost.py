@@ -6,7 +6,7 @@ from resizeimage import resizeimage
 import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
-from . import db
+from . import db, scheduler
 import json
 from PIL import Image as PILImage
 from config import Config
@@ -448,8 +448,7 @@ class Processpost():
         addtodb = not dbpostjob
         if addtodb:
             dbpostjob = Postjob()
-        dbpostjobs.append(dbpostjob)
-
+        
         dbpostjob.user_id = post.user_id
         dbpostjob.post_id = post.id
         dbpostjob.title = posttitle
@@ -460,16 +459,37 @@ class Processpost():
         if addtodb:
             db.session.add(dbpostjob)
 
+        db.session.commit()
+        dbpostjobs.append(dbpostjob)
         if (post.repost):
+            dbrepostjobs = Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).all()
+            for dbrepostjob in dbrepostjobs:
+                scheduler.remove_job(str(dbrepostjob.id))
             Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).delete()
             noontime = post.publishdate + timedelta(hours=5)
             eveningtime = noontime + timedelta(hours=6)
             dbpostjob_noon = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = noontime, repost = True, published = False)
             dbpostjob_evening = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = eveningtime, repost = True, published = False)
-            dbpostjobs.append(dbpostjob_noon)
-            dbpostjobs.append(dbpostjob_evening)
+
             db.session.add(dbpostjob_noon)
             db.session.add(dbpostjob_evening)
+            db.session.commit()
+            dbpostjobs.append(dbpostjob_noon)
+            dbpostjobs.append(dbpostjob_evening)
+        else:
+            Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).delete()
 
-        db.session.commit()
+        
+        #run_date = datetime.datetime.now() + timedelta(minutes=5)
+        for dbjob in dbpostjobs:
+            if scheduler.get_job(str(dbjob.id)):
+                scheduler.modify_job(str(dbjob.id),"default",trigger="date",run_date=dbjob.publishdate)
+                #run_date = datetime.datetime.now() + timedelta(minutes=6)
+                #scheduler.modify_job(str(dbjob.id),"default",trigger="date",run_date=run_date.astimezone(ZoneInfo("UTC")))
+                print(f"Job rescheduled for: {dbjob.publishdate}")
+            else:
+                scheduler.add_job(str(dbjob.id),'__main__:sendposts',trigger="date",run_date=dbjob.publishdate)
+                #scheduler.add_job(str(dbjob.id),'__main__:sendposts',trigger="date",run_date=run_date.astimezone(ZoneInfo("UTC")))
+                print(f"Job scheduled for: {dbjob.publishdate}")
+
         return dbpostjobs

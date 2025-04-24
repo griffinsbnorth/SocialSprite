@@ -14,7 +14,7 @@
 <script src="{{ url_for('static', filename='js/addpost.js') }}"></script>
 <h1>{{ postop }} POST</h1>
 <form method="POST" enctype="multipart/form-data">
-    <label for="title"><h2>Title: </h2></label>
+    <h2><label for="title">Title:</label></h2>
     <input type="text" id="title" name="title" class="form-control" maxlength="150" required>
     <br />
     <label for="scheduledate">Scheduled for:</label>
@@ -30,7 +30,7 @@
     <input type="date" id="cycledate" name="cycledate">
     <br />
     <input type="checkbox" id="images" name="images" value="images" checked>
-    <label for="images"><h2>Images</h2></label>
+    <h2><label for="images"> Images</label></h2>
     <canvas id="hiddencanvas" width=200 height=100 hidden></canvas>
     <div id="imgsection" name="imgsection">
         <input type="file" id="imgupload" name='imgupload' multiple>
@@ -38,15 +38,15 @@
     </div>
     <br />
     <input type="checkbox" id="tumblr" name="tumblr" value="Tumblr" checked>
-    <label for="tumblr"> <h2>Tumblr</h2> </label>
+    <h2><label for="tumblr"> Tumblr </label></h2>
     <div id="tform" name="tform">
         <div id="tblocks" name="tblocks"></div>
         <input type="checkbox" id="tbhasimages" name="tbhasimages" value="tbhasimages" hidden>
-        <label for="blogname"><h6>Blog (if different from default): </h6></label>
+        <h6><label for="blogname">Blog (if different from default): </label></h6>
         <input type="text" id="blogname" name="blogname" class="form-control" maxlength="150">
         <br />
         <div id="topttags"></div>
-        <label for="ttags"><h3>Tags: </h3></label>
+        <h3><label for="ttags">Tags: </label></h3>
         <input type="text" id="ttags" name="tags" class="form-control" maxlength="300" required>
         <br />
         <button type="button" id="addTbPhotoBtn" class="btn btn-secondary">Add Photo Block</button>
@@ -58,7 +58,7 @@
     </div>
     <br />
     <input type="checkbox" id="bluesky" name="bluesky" value="BlueSky" checked>
-    <label for="bluesky"> <h2>BlueSky</h2> </label>
+    <h2><label for="bluesky"> BlueSky </label></h2>
     <div id="bsformall" name="bsformall">
         <div id="topbstags"></div>
         <input type="checkbox" id="bshasimages" name="bshasimages" value="bshasimages" hidden>

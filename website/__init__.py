@@ -1,15 +1,20 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_apscheduler import APScheduler
 import os
 from werkzeug.security import generate_password_hash
 from flask_login import LoginManager
 
 db = SQLAlchemy()
+scheduler = APScheduler()
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object("config.DevelopmentConfig")
     db.init_app(app)
+    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        scheduler.init_app(app)
+        scheduler.start()
 
     from .views import views
     from .auth import auth
