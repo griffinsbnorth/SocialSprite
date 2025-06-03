@@ -32,6 +32,7 @@
 
 .tbphoto {
     display: flex;
+    flex-wrap: wrap;
 }
 
 .tbthumbcontainer {

@@ -4,6 +4,7 @@ from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob
 from .models import Image as DBImage
 from config import Config
 from .processpost import Processpost
+from .watcher import watcher
 import os
 import datetime
 from zoneinfo import ZoneInfo
@@ -110,6 +111,7 @@ def posts():
 @views.route('/watchers', methods=['GET', 'POST'])
 @login_required
 def watchers():
+    watcher()
     if request.method == 'POST':
         data = request.files
         print(data)

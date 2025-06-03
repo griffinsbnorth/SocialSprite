@@ -1,7 +1,9 @@
+import io
 from flask import current_app
 import re
 import os
 from atproto import models
+import requests
 from resizeimage import resizeimage
 import datetime
 from datetime import timedelta
@@ -13,14 +15,16 @@ from config import Config
 from werkzeug.utils import secure_filename
 from .models import Image as DBImage
 from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob
+import ua_generator
 
 class Processpost():
     FILE_SIZE_LIMIT = 1000000
 
-    def __init__(self, postid=-1):
+    def __init__(self, postid=-1, watcher_request=False):
         self.success = True
         self.message = ''
         self.postid = postid
+        self.watcher_request = watcher_request
 
     def __str__(self):
         return f"{self.message}"
@@ -41,7 +45,7 @@ class Processpost():
         return re.sub(r'[^\w\s]', '', user_input)  # Removes special characters
 
     def processform(self, data, files, userid):
-        print(files)
+        #print(files)
         print(data)
         self.message = ''
 
@@ -179,7 +183,10 @@ class Processpost():
                                  dbtblocks.append(dbtblock)
                                  tbindex += 1
                         case 'text':
-                             textops = json.loads(str(data.get('tbtext' + tbdata[1])))
+                             try:
+                                textops = json.loads(str(data.get('tbtext' + tbdata[1])),strict=False)
+                             except:
+                                 print(f"Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}")
                              dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex)
                              dbtblocks.append(dbtblock)
                              tbindex += 1
@@ -226,7 +233,7 @@ class Processpost():
                          skeetimgs = bsimgs[start:end]
                          start += 4
                          end += 4
-                     skeet = json.loads(str(data.get('bstext' + str(i))))
+                     skeet = json.loads(str(data.get('bstext' + str(i))),strict=False)
                      dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
                      dbskeets.append(dbskeet)
                      i += 1
@@ -259,7 +266,17 @@ class Processpost():
             for imgfile in imagefiles:
                 sfilename = secure_filename(imgfile.filename)
                 imgpath = os.path.join(Config.UPLOAD_FOLDER, sfilename)
-                imgfile.save(imgpath)
+                if self.watcher_request:
+                    ua = ua_generator.generate()
+                    r = requests.get(imgfile.url, stream=True, headers=ua.headers.get())
+                    if r.status_code == 200:
+                        im = PILImage.open(io.BytesIO(r.content))
+                        im.save(imgpath)
+                    else:
+                        self.message += 'Could not fetch image file from url\n'
+                        return []
+                else:
+                    imgfile.save(imgpath)
                 #resize image if needed
                 im = PILImage.open(imgpath)
                 imgsize = os.stat(imgpath).st_size
@@ -279,7 +296,7 @@ class Processpost():
 
                 #add to list of Image objects
                 index = fileorder[imgfile.filename]
-                dbimg = DBImage(post_id=postid,url=sfilename, width=im.width, height=im.height,mimetype=imgfile.mimetype, order=index, ready=processed)
+                dbimg = DBImage(post_id=postid,url=sfilename, width=im.width, height=im.height,mimetype=im.get_format_mimetype(), order=index, ready=processed)
                 processedimagefiles.append(dbimg)
 
             db.session.add_all(processedimagefiles)
@@ -464,7 +481,8 @@ class Processpost():
         if (post.repost):
             dbrepostjobs = Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).all()
             for dbrepostjob in dbrepostjobs:
-                scheduler.remove_job(str(dbrepostjob.id))
+                if scheduler.get_job(str(dbrepostjob.id)):
+                    scheduler.remove_job(str(dbrepostjob.id))
             Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).delete()
             noontime = post.publishdate + timedelta(hours=5)
             eveningtime = noontime + timedelta(hours=6)
@@ -488,8 +506,49 @@ class Processpost():
                 #scheduler.modify_job(str(dbjob.id),"default",trigger="date",run_date=run_date.astimezone(ZoneInfo("UTC")))
                 print(f"Job rescheduled for: {dbjob.publishdate}")
             else:
-                scheduler.add_job(str(dbjob.id),'__main__:sendposts',trigger="date",run_date=dbjob.publishdate)
+                scheduler.add_job(str(dbjob.id),sendposts,trigger="date",run_date=dbjob.publishdate)
                 #scheduler.add_job(str(dbjob.id),'__main__:sendposts',trigger="date",run_date=run_date.astimezone(ZoneInfo("UTC")))
                 print(f"Job scheduled for: {dbjob.publishdate}")
 
         return dbpostjobs
+
+def sendposts():
+    run_date = datetime.datetime.now()
+    check_datetime = datetime.datetime.now() + timedelta(minutes=5)
+    dbpostjobs = Postjob.query.filter(Postjob.publishdate <= check_datetime, Postjob.published == False).all()
+    for dbpostjob in dbpostjobs:
+        dbpost = Post.query.get(dbpostjob.post_id)
+        print(dbpost.title)
+        #check for tumblr
+        if dbpost.fortumblr:
+            #send tumblr post
+            sendtumblrpost(dbpost)
+
+        #check for bluesky
+        if dbpost.forbluesky:
+            #send tumblr post
+            sendblueskypost(dbpost)
+
+        dbpostjob.published = True
+        db.session.commit()
+        if dbpost.cycle and not dbpostjob.repost:
+            #update cycledate and scheduledate
+            datediff = dbpost.cycledate - dbpost.publishdate
+            print(datediff)
+            dbpost.publishdate = dbpost.cycledate
+            print(dbpost.publishdate)
+            dbpost.cycledate = dbpost.cycledate + datediff
+            print(dbpost.cycledate)
+            db.session.commit()
+            #generate postjobs
+            postprocessor = Processpost(dbpost.id)
+            postprocessor.generate_post_jobs(dbpost)
+
+
+    print(f"POST SENT AT: {run_date}")
+
+def sendtumblrpost(post):
+    print("tumblr post sent")
+
+def sendblueskypost(post):
+    print("bluesky post sent")

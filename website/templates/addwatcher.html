@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{{ watcherop }} WATCHER{% endblock %}
+{% block content %}
+<script type="text/javascript">
+    var watcherdata = {{ watcherdata|tojson}}
+</script>
+<script src="{{ url_for('static', filename='js/addwatcher.js') }}"></script>
+<h1>{{ watcherop }} WATCHER</h1>
+<form method="POST" enctype="multipart/form-data">
+    <select name="wtype" id="wtype">
+        <option value="comic" selected>Comic</option>
+        <option value="blog" selected>Blog</option>
+        <option value="youtube" selected>Video</option>
+        <option value="patreon" selected>Patreon</option>
+    </select>
+    <br />
+    <h2><label for="url">Url:</label></h2>
+    <input type="url" id="url" name="url" class="form-control" maxlength="256" required>
+    <br />
+    <label for="scheduledate">Scheduled for:</label>
+    <input type="date" id="scheduledate" name="scheduledate" required>
+    <label for="time">At time:</label>
+    <input type="time" id="time" name="time" required>
+    <br />
+    <label for="archival"> Archival? </label>
+    <input type="checkbox" id="archival" name="archival" value="archival">
+    <label for="pagenum"> Pages per update: </label>
+    <input type="number" id="pagenum" name="pagenum" min="0" max="10">
+    <br />
+    <h2>Post data:</h2>
+    <label for="titleprefix">Title Prefix:</label>
+    <input type="text" id="titleprefix" name="titleprefix" class="form-control" maxlength="100" required>
+    <label for="titlekey">Title Key:</label>
+    <input type="text" id="titlekey" name="titlekey" class="form-control" maxlength="100" required>
+    <label for="updatekey">Update Key:</label>
+    <input type="text" id="updatekey" name="updatekey" class="form-control" maxlength="100" required>
+    <label for="prevkey">Prev Key:</label>
+    <input type="text" id="prevkey" name="prevkey" class="form-control" maxlength="100" required>
+    <label for="nextkey">Next Key:</label>
+    <input type="text" id="nextkey" name="nextkey" class="form-control" maxlength="100" required>
+    <label for="slugkey">Slug Key(optional):</label>
+    <input type="text" id="slugkey" name="slugkey" class="form-control" maxlength="100">
+    <label for="posttext">Post Text(optional):</label>
+    <input type="text" id="posttext" name="posttext" class="form-control" maxlength="100">
+    <br />
+    <h6>Post Behaviour:</h6>
+    <label for="repost"> Repost? </label>
+    <input type="checkbox" id="repost" name="repost" value="repost" checked>
+    <label for="cycle"> Cycle post? </label>
+    <input type="checkbox" id="cycle" name="cycle" value="cycle" checked>
+    <label for="cycledate">Cycle post on:</label>
+    <input type="date" id="cycledate" name="cycledate">
+    <br />
+    <label for="images"> Images? </label>
+    <input type="checkbox" id="images" name="images" value="images">
+    <label for="tumblr"> Tumblr? </label>
+    <input type="checkbox" id="tumblr" name="tumblr" value="Tumblr" checked>
+    <label for="tbhasimages"> Add Images To Tumblr Post? </label>
+    <input type="checkbox" id="tbhasimages" name="tbhasimages" value="tbhasimages">
+    <label for="bluesky"> BlueSky? </label>
+    <input type="checkbox" id="bluesky" name="bluesky" value="BlueSky" checked>
+    <label for="bshasimages"> Add Images To BlueSky Skeet(s)? </label>
+    <input type="checkbox" id="bshasimages" name="bshasimages" value="bshasimages">
+    <br />
+    <div id="imform" name="imform">
+        <h2>Image Post data:</h2>
+        <label for="searchkeys">Image Search Keys:</label>
+        <input type="text" id="searchkeys" name="searchkeys" class="form-control" maxlength="300" required>
+        <br />
+    </div>
+    <div id="tbform" name="tbform">
+        <h2>Tumblr Post data:</h2>
+        <h6><label for="blogname">Blog (if different from default): </label></h6>
+        <input type="text" id="blogname" name="blogname" class="form-control" maxlength="150">
+        <div id="topttags"></div>
+        <h3><label for="ttags">Tags: </label></h3>
+        <input type="text" id="ttags" name="tags" class="form-control" maxlength="150" required>
+        <br />
+    </div>
+    <div id="bsform" name="bsform">
+        <h2>BlueSky Skeet(s) data:</h2>
+        <div id="topbstags"></div>
+        <h3><label for="bstags">Tags: </label></h3>
+        <input type="text" id="bstags" name="bstags" class="form-control" maxlength="100" required>
+        <br />
+    </div>
+    <br />
+    <span id="errormessages"></span>
+    <div align="center">
+        <button id="submitBtn" type="submit" class="btn btn-primary">{{ watcherop }} WATCHER</button>
+    </div>
+</form>
+{% endblock %}
