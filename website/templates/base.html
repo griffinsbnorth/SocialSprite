@@ -3,11 +3,12 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}" />
     <link href="{{ url_for('static', filename='css/filepond.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/filepond-plugin-image-preview.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/quill.snow.css') }}" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <link href='https://cdn.boxicons.com/fonts/basic/boxicons.min.css' rel='stylesheet'>
 
     <title>{% block title %}Home{% endblock %}</title>
 </head>
@@ -15,33 +16,57 @@
     <script src="{{ url_for('static', filename='js/jquery-3.7.1.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/popper.js') }}"></script>
     <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
+
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <button class="navbar-toggler"
-                type="button"
-                data-toggle="collapse"
-                data-target="#navbar">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbar">
-            <div class="navbar-nav">
-                {% if user.is_authenticated %}
-                <a class="nav-item nav-link" id="home" href="/">Home</a>
-                <a class="nav-item nav-link" id="addpost" href="/addpost">Add Post</a>
-                <a class="nav-item nav-link" id="addpost" href="/posts">Posts</a>
-                <a class="nav-item nav-link" id="addpost" href="/watchers">Watchers</a>
-                <a class="nav-item nav-link" id="addpost" href="/queue">Queue</a>
-                <a class="nav-item nav-link" id="addpost" href="/settings">Settings</a>
-                <a class="nav-item nav-link" id="logout" href="/logout">Logout</a>
-                {% else %}
-                <a class="nav-item nav-link" id="login" href="/login">Login</a>
-                {% endif %}
+        <div class="container-fluid">
+            {% if user.is_authenticated %}
+            <a class="navbar-brand" href="/">Social Sprite</a>
+            {% else %}
+            <a class="navbar-brand" href="/login">Social Sprite</a>
+            {% endif %}
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            ADD <i class='bx  bx-plus'></i>
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" id="addpost" href="/addpost">Add Post</a></li>
+                            <li><a class="dropdown-item" id="addwatcher" href="/addwatcher">Add Watcher</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="home" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="queue" href="/queue">Queue</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="watchers" href="/watchers">Watchers</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="settings" href="/settings">Settings</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" id="logout" href="/logout">Logout</a>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" id="login" href="/login">Login</a>
+                    </li>
+                    {% endif %}
+                </ul>
             </div>
         </div>
     </nav>
 
-    {% with messages = get_flashed_messages(with_categories=true) %} 
-    {% if messages %} 
-    {% for category, message in messages %} 
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
     {% if category == 'error' %}
     <div class="alert alert-danger alter-dismissable fade show" role="alert">
         {{ message }}
@@ -56,9 +81,9 @@
             <span aria-hidden="true">&times;</span>
         </button>
     </div>
-    {% endif %} 
-    {% endfor %} 
-    {% endif %} 
+    {% endif %}
+    {% endfor %}
+    {% endif %}
     {% endwith %}
     <div class="container">{% block content %} {% endblock %}</div>
 </body>

@@ -108,6 +108,45 @@ def posts():
 
     return render_template("posts.html", user=current_user, pagination=pagination)
 
+@views.route('/addwatcher', methods=['GET', 'POST'])
+@login_required
+def addwatcher():
+    watcherdata = {
+        'id': -1,
+        'url': '',
+        'wtype': 'comic',
+        'titleprefix': '',
+        'titlekey': '',
+        'searchkeys': '',
+        'updatekey': '',
+        'prevkey': '',
+        'nextkey': '',
+        'slugkey': '',
+        'posttext': '',
+        'pagenum': 1,
+        'scheduledate': '', 
+        'cycledate': '',
+        'time': '08:00',
+        'repost': True,
+        'cycle': True,
+        'images': True,
+        'tumblr': True,
+        'bluesky': True,
+        'tbhasimages': True,
+        'bshasimages': True,
+        'archival': False,
+        'blogname': '',
+        'ttags': '',
+        'bstags': '',
+        'toptbtags': gettoptags('tumblr'),
+        'topbstags': gettoptags('bluesky')
+        }
+
+    if request.method == 'POST':
+        print("AAAAAAA")
+
+    return render_template("addwatcher.html", user=current_user, watcherdata=watcherdata, watcherop='ADD')
+
 @views.route('/watchers', methods=['GET', 'POST'])
 @login_required
 def watchers():

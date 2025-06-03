@@ -183,6 +183,7 @@ class Processpost():
                                  dbtblocks.append(dbtblock)
                                  tbindex += 1
                         case 'text':
+                             textops = {}
                              try:
                                 textops = json.loads(str(data.get('tbtext' + tbdata[1])),strict=False)
                              except:
@@ -233,7 +234,11 @@ class Processpost():
                          skeetimgs = bsimgs[start:end]
                          start += 4
                          end += 4
-                     skeet = json.loads(str(data.get('bstext' + str(i))),strict=False)
+                     skeet = {}
+                     try:
+                        skeet = json.loads(str(data.get('bstext' + str(i))),strict=False)
+                     except:
+                        print(f"Could not parse into json, bstext{i}: {str(data.get('bstext' + str(i)))}")
                      dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
                      dbskeets.append(dbskeet)
                      i += 1
