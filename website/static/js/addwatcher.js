@@ -18,41 +18,19 @@ $(document).ready(function () {
     $('#tbhasimages').prop('checked', watcherdata['tbhasimages']);
     $('#bshasimages').prop('checked', watcherdata['bshasimages']);
 
-    //set datepicker
-    var scheduledatestring = watcherdata['scheduledate'];
-    var cycledatestring = watcherdata['cycledate'];
+    //schedule data
+    $('#month').val(watcherdata['scheduledata']['month']);
+    $('#day_of_month').val(watcherdata['scheduledata']['day_of_month']);
+    $('#hour').val(watcherdata['scheduledata']['hour']);
+    $('#minute').val(watcherdata['scheduledata']['minute']);
+    const days_of_week = document.getElementsByName('day_of_week');
+    Array.from(days_of_week).forEach((day_of_week, index) => {
+        day_of_week.checked = watcherdata['scheduledata']['day_of_week'].includes(day_of_week.value);
+    });
 
-    var date = new Date();
-    date.setUTCDate(date.getUTCDate() + 1);
-    if (scheduledatestring != '') {
-        var scheddate = new Date(scheduledatestring);
-        if (scheddate < date) {
-            scheduledatestring = date.toLocaleDateString();
-        }
-    } else {
-        scheduledatestring = date.toLocaleDateString();
-    }
-    var cycledate = new Date(scheduledatestring);
-    cycledate.setUTCDate(cycledate.getUTCDate() + 8);
-    if (cycledatestring != '') {
-        var cydate = new Date(cycledatestring);
-        var scheddate = new Date(scheduledatestring);
-        if (cydate < scheddate) {
-            cycledatestring = cycledate.toLocaleDateString();
-        }
-        if (cydate < cycledate) {
-            cycledate = cydate;
-        }
-    } else {
-        cycledatestring = cycledate.toLocaleDateString();
-    }
-    $('#scheduledate').attr('min', date.toLocaleDateString());
-    $('#scheduledate').val(scheduledatestring);
-    $('#scheduledate').on('change', function () { setCycleMinDate(this.value) });
-    $('#cycledate').attr('min', cycledate.toLocaleDateString());
-    $('#cycledate').val(cycledatestring);
-    $('#time').val(watcherdata['time']);
-
+    //cycle delta
+    $('#days').val(watcherdata['cycledelta']['days']);
+    $('#weeks').val(watcherdata['cycledelta']['weeks']);
 
     //tumblr section
     $('#blogname').val(watcherdata['blogname']);
@@ -81,16 +59,68 @@ $(document).ready(function () {
     changeForm(watcherdata['wtype']);
 
     //form submit
-    const form = document.querySelector('form');
-    form.addEventListener('formdata', (event) => {
-        //this might not be needed
-    });
-
     form.addEventListener('submit', (event) => {
         //check all errors
         var error = false;
         var errormsg = '';
-        //to-do: fill later
+        const watchertype = $('#wtype').val()
+
+        const month_is_empty = $('#month').val() == 0
+        const day_of_month_is_empty = $('#day_of_month').val() == 0
+        const hour_is_empty = $('#hour').val()  == -1
+        const minute_is_empty = $('#minute').val() == -1
+        const day_of_week_is_nonempty = false
+        const days_of_week = document.getElementsByName('day_of_week');
+        Array.from(days_of_week).forEach((day_of_week, index) => {
+            if (day_of_week.checked == true) {
+                day_of_week_is_nonempty = true;
+            }
+        });
+        if (month_is_empty && day_of_month_is_empty && hour_is_empty && minute_is_empty && !day_of_week_is_nonempty) {
+            errormsg += 'At least one schedule behaviour must be chosen.</br>';
+            error = true;
+        }
+
+        if ($('#cycle').is(':checked')) {
+            const days_is_empty = $('#days').val() == 0
+            const weeks_is_empty = $('#weeks').val() == 0
+            if (days_is_empty && weeks_is_empty) {
+                errormsg += 'Missing cycle data.</br>';
+                error = true;
+            }
+        }
+
+        if (!$('#tumblr').is(':checked') && !$('#bluesky').is(':checked')) {
+            errormsg += 'No social media selected for post generation.</br>';
+            error = true;
+        }
+
+        if ($('#images').is(':checked') && !$('#tbhasimages').is(':checked') && !$('#bshasimages').is(':checked')) {
+            errormsg += 'Images is selected but no social media was selected to add images to.</br>';
+            error = true;
+        }
+
+        if (watchertype == "comic") {
+            if ($('#archival').is(':checked') ){
+
+                if ($('#pagenum').val() == 0) {
+                    errormsg += 'Pages per update can\'t be empty if archival.</br>';
+                    error = true;
+                }
+            }
+            if ($('#titlekey').val() == "slug") {
+                if ($('#slugkey').val() == '') {
+                    errormsg += 'Slug key can\'t be empty if titlekey is "slug".</br>';
+                    error = true;
+                }
+            }
+        }
+
+        if (error) {
+            $('#errormessages').html(errormsg);
+            event.preventDefault();
+            return false;
+        }
     });
 
 });

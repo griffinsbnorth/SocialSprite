@@ -21,18 +21,39 @@
     <span id="archivalmsg">Must be the first comic link!</span>
     <input type="url" id="url" name="url" class="form-control" maxlength="256" required>
     <br />
-    <label for="scheduledate">Scheduled for:</label>
-    <input type="date" id="scheduledate" name="scheduledate" required>
-    <label for="time">At time:</label>
-    <input type="time" id="time" name="time" required>
+    <h3>Schedule Behaviour:</h3>
+    <b>Month: </b>
+    <input type="number" id="month" name="month" min="0" max="12">
+    <b>Day Of Month: </b>
+    <input type="number" id="day_of_month" name="day_of_month" min="0" max="28">
+    <br /><b>Day Of Week: </b>
+    <label for="mon"> Monday </label>
+    <input type="checkbox" id="mon" name="day_of_week" value='0'>
+    <label for="tue"> Tuesday </label>
+    <input type="checkbox" id="tue" name="day_of_week" value='1'>
+    <label for="wed"> Wednesday </label>
+    <input type="checkbox" id="wed" name="day_of_week" value='2'>
+    <label for="thu"> Thursday </label>
+    <input type="checkbox" id="thu" name="day_of_week" value='3'>
+    <label for="fri"> Friday</label>
+    <input type="checkbox" id="fri" name="day_of_week" value='4'>
+    <label for="sat"> Saturday </label>
+    <input type="checkbox" id="sat" name="day_of_week" value='5'>
+    <label for="sun"> Sunday </label>
+    <input type="checkbox" id="sun" name="day_of_week" value='6'>
+    <br/><b>Hour: </b> 
+    <input type="number" id="hour" name="hour" min="-1" max="23">
+    <b>Minute: </b>
+    <input type="number" id="minute" name="minute" min="-1" max="59">
     <br />
-    <h5>Post Behaviour:</h5>
+    <h3>Post Behaviour:</h3>
     <label for="repost"> Repost? </label>
     <input type="checkbox" id="repost" name="repost" value="repost" checked>
     <label for="cycle"> Cycle post? </label>
     <input type="checkbox" id="cycle" name="cycle" value="cycle" checked>
-    <label for="cycledate">Cycle post on:</label>
-    <input type="date" id="cycledate" name="cycledate">
+    <h5>Cycle post every:</h5>
+    <input type="number" id="days" name="days" min="0" max="31"> Days
+    <input type="number" id="weeks" name="weeks" min="0" max="53"> Weeks
     <br />
     <label for="posttext">Post Text(optional):</label>
     <input type="text" id="posttext" name="posttext" class="form-control" maxlength="100">
@@ -81,6 +102,7 @@
         <input type="text" id="titleprefix" name="titleprefix" class="form-control" maxlength="100" required>
         <label for="titlekey">Title Key:</label>
         <p class="hint">(Element, Attribute, Attribute Name) Example: div:class:name</p>
+        <p class="hint">Alternatively input "slug" if you'd rather use the url slug for the title key</p>
         <input type="text" id="titlekey" name="titlekey" class="form-control" maxlength="100" required>
         <label for="updatekey">Update Key:</label>
         <p class="hint">(Element, Attribute, Attribute Name) Example: div:class:name</p>
