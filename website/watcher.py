@@ -16,7 +16,10 @@ import json
 import ua_generator
 import feedparser
 
-def watcher():
+def watcher(watcherid):
+    print("watcher launched")
+
+def watcherblog():
     feed_url = ""
     lastupdate = ''
     postcheckmarks = ['repost','cycle','images','tumblr','bluesky','bshasimages','tbhasimages']

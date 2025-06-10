@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, current_app, flash, jsonify, send_file
 from flask_login import login_required, current_user
-from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob
+from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob, Watcher
 from .models import Image as DBImage
 from config import Config
 from .processpost import Processpost
+from .processwatcher import Processwatcher
 from .watcher import watcher
 import os
 import datetime
@@ -142,18 +143,73 @@ def addwatcher():
         }
 
     if request.method == 'POST':
-        print("AAAAAAA")
+        data = request.form
+        watcherprocessor = Processwatcher()
+        watcherprocessor.processform(data, current_user.id)
+        if watcherprocessor.success:
+            flash(watcherprocessor.message, category='success')
+        else:
+            flash(watcherprocessor.message, category='error')
 
     return render_template("addwatcher.html", user=current_user, watcherdata=watcherdata, watcherop='ADD')
+
+@views.route('/editwatcher/<int:watcherid>', methods=['GET', 'POST'])
+def editwatcher(watcherid):
+    if request.method == 'POST':
+        data = request.form
+        watcherprocessor = Processwatcher(watcherid)
+        watcherprocessor.processform(data, current_user.id)
+        if watcherprocessor.success:
+            flash(watcherprocessor.message, category='success')
+        else:
+            flash(watcherprocessor.message, category='error')
+
+    editwatcher = Watcher.query.get(watcherid)
+    scheduledata = editwatcher.scheduledata
+    cycledelta = editwatcher.cycledelta
+    postcheckmarks = editwatcher.postcheckmarks
+
+    watcherdata = {
+        'id': watcherid,
+        'url': editwatcher.url,
+        'wtype': editwatcher.wtype,
+        'titleprefix': editwatcher.titleprefix,
+        'titlekey': editwatcher.titlekey,
+        'searchkeys': editwatcher.searchkeys,
+        'updatekey': editwatcher.updatekey,
+        'prevkey': editwatcher.prevkey,
+        'nextkey': editwatcher.nextkey,
+        'slugkey': editwatcher.slugkey,
+        'posttext': editwatcher.posttext,
+        'pagenum': editwatcher.pagesperupdate,
+        'scheduledata': {'month':scheduledata['month'],'day_of_month':scheduledata['day_of_month'],'day_of_week':scheduledata['day_of_week'],'hour':scheduledata['hour'],'minute':scheduledata['minute']}, 
+        'cycledelta': {'days':cycledelta['days'],'weeks':cycledelta['weeks']},
+        'repost': 'repost' in postcheckmarks,
+        'cycle': 'cycle' in postcheckmarks,
+        'images': 'images' in postcheckmarks,
+        'tumblr': 'tumblr' in postcheckmarks,
+        'bluesky': 'bluesky' in postcheckmarks,
+        'tbhasimages': 'tbhasimages' in postcheckmarks,
+        'bshasimages': 'bshasimages' in postcheckmarks,
+        'archival': 'archival' in postcheckmarks,
+        'blogname': editwatcher.blogname,
+        'ttags': editwatcher.tbtags,
+        'bstags': editwatcher.bstags,
+        'toptbtags': gettoptags('tumblr'),
+        'topbstags': gettoptags('bluesky')
+        }
+
+    return render_template("addwatcher.html", user=current_user, watcherdata=watcherdata, watcherop='EDIT')
 
 @views.route('/watchers', methods=['GET', 'POST'])
 @login_required
 def watchers():
-    watcher()
-    if request.method == 'POST':
-        data = request.files
-        print(data)
-    return render_template("watchers.html", user=current_user)
+    currentpage = request.args.get('page', 1, type=int)
+    pagination = Watcher.query.filter(Watcher.user_id == current_user.id).order_by(Watcher.lastran).paginate(page=currentpage, per_page=15)
+    for item in pagination.items:
+        item.lastran = item.lastran.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
+
+    return render_template("watchers.html", user=current_user, pagination=pagination)
 
 @views.route('/queue', methods=['GET', 'POST'])
 @login_required
@@ -164,6 +220,20 @@ def queuepage():
         item.publishdate = item.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
 
     return render_template("queue.html", user=current_user, pagination=pagination)
+
+@views.route('/deletewatcher', methods=['POST'])
+def delete_watcher():  
+    watcher = json.loads(request.data)
+    watcherid = watcher['watcherid']
+    watcher = Watcher.query.get(watcherid)
+    if watcher:
+        if watcher.user_id == current_user.id:
+            watcherprocessor = Processwatcher(watcherid)
+            watcherprocessor.removejob()
+            db.session.delete(watcher)
+            db.session.commit()
+
+    return jsonify({})
 
 @views.route('/deletepost', methods=['POST'])
 def delete_post():  

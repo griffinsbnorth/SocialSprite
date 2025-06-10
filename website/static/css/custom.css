@@ -78,8 +78,23 @@
     border-block-width: 5px;
 }
 
+.watcherspageitem {
+    display: flex;
+    padding: 15px;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    margin: 5px;
+    border-radius: 25px;
+    flex-direction: row;
+    color: white;
+}
+
+.watcherspageitem a {
+    color: chartreuse;
+}
+
 .leftside {
-    justify-self:left;
+    justify-self: left;
 }
 .centersection {
     margin:auto;

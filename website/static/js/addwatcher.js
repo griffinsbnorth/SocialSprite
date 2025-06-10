@@ -59,6 +59,7 @@ $(document).ready(function () {
     changeForm(watcherdata['wtype']);
 
     //form submit
+    const form = document.querySelector('form');
     form.addEventListener('submit', (event) => {
         //check all errors
         var error = false;

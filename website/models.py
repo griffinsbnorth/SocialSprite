@@ -78,6 +78,7 @@ class Postjob(db.Model):
 class Watcher(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    wtype = db.Column(db.String(32))
     url = db.Column(db.String(256))
     searchkeys = db.Column(db.JSON, nullable=True)
     titleprefix = db.Column(db.String(100))
@@ -95,6 +96,7 @@ class Watcher(db.Model):
     tbtags = db.Column(db.String(150))
     blogname = db.Column(db.String(150), default="")
     cycledelta = db.Column(db.JSON, nullable=True)
+    scheduledata = db.Column(db.JSON, nullable=True)
     lastran = db.Column(db.DateTime(timezone=True), default=func.now())
     status = db.Column(db.String(32))
     running = db.Column(db.Boolean, default=True, nullable=False)
