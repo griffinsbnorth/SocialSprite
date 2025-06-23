@@ -212,13 +212,12 @@ class Processwatcher():
         return
 
     def setwatcher(self,running):
-        
         jobname = "w" + str(self.watcherid)
         job = scheduler.get_job(jobname)
         if job:
             if running:
                 job.resume()
-                print(f"Watcher resumed schedule for: {job.next_run_time}")
+                print(f"Watcher resumed schedule.")
             else:
                 job.pause()
                 print(f"Watcher paused.")

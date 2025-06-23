@@ -95,6 +95,8 @@
 
 .leftside {
     justify-self: left;
+    text-wrap-mode: wrap;
+    max-width: 500px;
 }
 .centersection {
     margin:auto;

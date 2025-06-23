@@ -8,8 +8,9 @@
     <div class="watcherspageitem">
         <div class="leftside">
             <h5>{{ watcher.url }}</h5>
-            {{ watcher.wtype }} {{ watcher.scheduledata }}
-        </div>
+            <h6>{{ watcher.wtype }}</h6> 
+            {{ watcher.scheduledata }}
+</div>
         <div class="centersection">
             <b>On/Off:</b>
             <label class="switch">
@@ -23,6 +24,7 @@
             <button id="submitBtn" type="submit" class="btn btn-primary" onClick="runwatcher({{ watcher.id }}, {{ pagination.page }})">RUN ONCE</button>
         </div>
         <div class="rightside">
+            <h6>STATUS: {{ watcher.status }}</h6>
             <b>{{ watcher.lastran }}</b>
             <a href="{{ url_for('views.editwatcher', watcherid=watcher.id) }}">EDIT</a>
             <button type="button" class="close" onClick="deletewatcher({{ watcher.id }}, {{ pagination.page }})">

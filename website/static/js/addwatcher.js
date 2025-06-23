@@ -192,16 +192,28 @@ function removeElement(element) {
 
 function changeForm(val) {
     const archivalcheck = document.getElementById('archival').checked;
-    const iscomic = (val == "comic")
-    const isrss = (val == "blog" || val == "youtube")
-    document.getElementById('comicform').hidden = !iscomic
+    const iscomic = (val == "comic");
+    const isrss = (val == "blog" || val == "youtube");
+    const imgchkbox = document.getElementById('images');
+    document.getElementById('comicform').hidden = !iscomic;
     document.getElementById('rssmsg').hidden = !isrss
-    document.getElementById('currentcomicmsg').hidden = !(iscomic && !archivalcheck)
-    document.getElementById('archivalmsg').hidden = !(iscomic && archivalcheck)
-    document.getElementById('titleprefix').required = iscomic
-    document.getElementById('titlekey').required = iscomic
-    document.getElementById('searchkeys').required = iscomic
-    document.getElementById('updatekey').required = iscomic
-    document.getElementById('prevkey').required = iscomic
-    document.getElementById('nextkey').required = iscomic
+    document.getElementById('currentcomicmsg').hidden = !(iscomic && !archivalcheck);
+    document.getElementById('archivalmsg').hidden = !(iscomic && archivalcheck);
+    document.getElementById('titleprefix').required = iscomic;
+    document.getElementById('titlekey').required = iscomic;
+    document.getElementById('searchkeys').required = iscomic;
+    document.getElementById('updatekey').required = iscomic;
+    document.getElementById('prevkey').required = iscomic;
+    document.getElementById('nextkey').required = iscomic;
+    if (iscomic) {
+        imgchkbox.checked = true
+        toggleSection()
+        imgchkbox.disabled = true
+    } else if (val == "youtube") {
+        imgchkbox.checked = false
+        imgchkbox.disabled = true
+        toggleSection()
+    } else {
+        imgchkbox.disabled = false
+    }
 }

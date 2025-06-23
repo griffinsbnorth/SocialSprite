@@ -205,6 +205,7 @@ def watchers():
     pagination = Watcher.query.filter(Watcher.user_id == current_user.id).order_by(Watcher.lastran).paginate(page=currentpage, per_page=15)
     for item in pagination.items:
         item.lastran = item.lastran.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
+        item.scheduledata = formatscheduledata(item.scheduledata)
 
     return render_template("watchers.html", user=current_user, pagination=pagination)
 
@@ -403,5 +404,22 @@ def gettoptags(tagtype):
         toptaglist.append(toptag.tag)
     return toptaglist
 
-
+def formatscheduledata(scheduledata):
+    month_str = '*'
+    if scheduledata['month'] != '0':
+        month_str = scheduledata['month']
+    day_of_month_str = '*'
+    if scheduledata['day_of_month'] != '0':
+        day_of_month_str = scheduledata['day_of_month']
+    daylist_str = '*'
+    if scheduledata['day_of_week']:
+        daylist_str = ','.join(scheduledata['day_of_week'])
+    hour_str = '*'
+    if scheduledata['hour'] != '-1':
+        hour_str = scheduledata['hour']
+    minute_str = '*'
+    if scheduledata['minute'] != '-1':
+        minute_str = scheduledata['minute']
+            
+    return minute_str + ' ' + hour_str + ' ' + day_of_month_str + ' ' + month_str + ' ' + daylist_str
 

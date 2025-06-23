@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
-from sqlalchemy import insert
 from werkzeug.datastructures import MultiDict
 from urllib.parse import urlparse, unquote
 from pathlib import PurePosixPath
@@ -37,7 +36,7 @@ def watcher(watcherid):
 
         if not running:
             jobname = "w" + str(watcher.id)
-            #scheduler.pause_job(jobname)
+            scheduler.pause_job(jobname)
 
 def watchertwitch(watcher:Watcher):
     return
@@ -482,9 +481,10 @@ def getprevpages(URL,updatetext,prevdiv,prevattr,lastupdate,updateattr):
         url_prefix = url_parsed.scheme + '://' + url_parsed.netloc
     firsturl = URL
     prevpages = []
+    pagesperupdate = 10
     if not prevdiv:
         updatetext = lastupdate
-    while updatetext != lastupdate:
+    while updatetext != lastupdate or pagesperupdate > 1:
         tempurl = prevdiv['href']
         r = requests.get(url=url_prefix + tempurl,headers=ua.headers.get())
         tempsoup = BeautifulSoup(r.content, 'html5lib')
@@ -492,9 +492,12 @@ def getprevpages(URL,updatetext,prevdiv,prevattr,lastupdate,updateattr):
         prevdiv = tempsoup.find(prevattr[0], attrs = {prevattr[1]:prevattr[2]} )
         if not prevdiv:
             updatetext = lastupdate
-        if updatetext != lastupdate:
+        if updatetext != lastupdate or pagesperupdate > 1:
             firsturl = tempurl
             prevpages.append(tempsoup)
+        pagesperupdate = pagesperupdate - 1
+        if pagesperupdate <= 0:
+            updatetext = lastupdate
     return (firsturl,prevpages)
 
 def getnextpages(URL,nextdiv,nextattr,currentupdate,updateattr,pagesperupdate):
