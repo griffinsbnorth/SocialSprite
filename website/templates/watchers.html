@@ -10,6 +10,18 @@
             <h5>{{ watcher.url }}</h5>
             {{ watcher.wtype }} {{ watcher.scheduledata }}
         </div>
+        <div class="centersection">
+            <b>On/Off:</b>
+            <label class="switch">
+                {% if watcher.running %}
+                <input type="checkbox" checked="{{ watcher.running }}" onClick="setwatcherstatus({{ watcher.id }}, {{ pagination.page }})">
+                {% else %}
+                <input type="checkbox" onClick="setwatcherstatus({{ watcher.id }}, {{ pagination.page }})">
+                {% endif %}
+                <span class="slider round"></span>
+            </label>
+            <button id="submitBtn" type="submit" class="btn btn-primary" onClick="runwatcher({{ watcher.id }}, {{ pagination.page }})">RUN ONCE</button>
+        </div>
         <div class="rightside">
             <b>{{ watcher.lastran }}</b>
             <a href="{{ url_for('views.editwatcher', watcherid=watcher.id) }}">EDIT</a>
@@ -62,6 +74,22 @@
                 window.location.href = "/watchers?page=" + currentpage;
             });
         }
+    }
+    function runwatcher(watcherid, currentpage) {
+        fetch("/runwatcher", {
+            method: "POST",
+            body: JSON.stringify({ watcherid: watcherid }),
+        }).then((_res) => {
+            window.location.href = "/watchers?page=" + currentpage;
+        });
+    }
+    function setwatcherstatus(watcherid, currentpage) {
+        fetch("/setwatcherstatus", {
+            method: "POST",
+            body: JSON.stringify({ watcherid: watcherid }),
+        }).then((_res) => {
+            window.location.href = "/watchers?page=" + currentpage;
+        });
     }
 </script>
 {% endblock %}

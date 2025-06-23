@@ -35,6 +35,9 @@
             <b style="color:firebrick;">UNPUBLISHED</b>
             <a href="{{ url_for('views.editpost', postid=postjob.post_id) }}">EDIT POST</a>
             {% endif %}
+            <button type="button" class="close" onClick="deletepostjob({{ postjob.id }}, {{ pagination.page }})">
+                <span aria-hidden="true">&times;</span>
+            </button>
         </div>
     </div>
     {% endif %}
@@ -69,6 +72,20 @@
             {{ '>>>' }}
         </a>
     </span>
-    </div>
     {% endif %}
+</div>
+    
+<script type="text/javascript">
+    function deletepostjob(postjobid, currentpage) {
+        deleteconfirm = confirm("Are you sure you want to delete this?");
+        if (deleteconfirm) {
+            fetch("/deletepostjob", {
+                method: "POST",
+                body: JSON.stringify({ postjobid: postjobid }),
+            }).then((_res) => {
+                window.location.href = "/queue?page=" + currentpage;
+            });
+        }
+    }
+</script>
     {% endblock %}

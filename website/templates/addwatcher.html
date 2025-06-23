@@ -95,6 +95,7 @@
         <p class="hint">Comic Watchers need HTML keys to search for when web scraping</p>
         <label for="searchkeys">Image Search Keys:</label>
         <p class="hint">List of keys to find images (Element, Attribute, Attribute Name) Example: img:id:img1,img:class:img2</p>
+        <p class="hint">This is in order of preference. The first key to have images overrides the rest.</p>
         <input type="text" id="searchkeys" name="searchkeys" class="form-control" maxlength="300" required>
         <br />
         <label for="titleprefix">Title Prefix:</label>
@@ -113,7 +114,8 @@
         <label for="nextkey">Next Key:</label>
         <p class="hint">(Element, Attribute, Attribute Name) Example: a:class:name</p>
         <input type="text" id="nextkey" name="nextkey" class="form-control" maxlength="100" required>
-        <label for="slugkey">Slug Key(optional):</label>
+        <label for="slugkey">Slug Key:</label>
+        <p class="hint">Don't use with Archival. Use only if you want actual page link and the main surveyed link doesn't have it i.e. comic/ vs comic/slug</p>
         <p class="hint">(Element, Attribute, Attribute Name) Example: p:id:name</p>
         <input type="text" id="slugkey" name="slugkey" class="form-control" maxlength="100">
         <br />

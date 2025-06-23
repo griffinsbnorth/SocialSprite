@@ -10,25 +10,52 @@ from werkzeug.datastructures import MultiDict
 from urllib.parse import urlparse, unquote
 from pathlib import PurePosixPath
 import math
+from website.models import Watcher
 from .processpost import Processpost
-from flask_login import current_user
 import json
 import ua_generator
 import feedparser
+from . import db, scheduler
 
 def watcher(watcherid):
-    print("watcher launched")
+    app = scheduler.app
+    with app.app_context():
+        watcher = Watcher.query.get(watcherid)
 
-def watcherblog():
-    feed_url = ""
-    lastupdate = ''
-    postcheckmarks = ['repost','cycle','images','tumblr','bluesky','bshasimages','tbhasimages']
-    tbtags = 'comic,Tora Steals Things,gw2'
-    bstags = '#comic #webcomic'
-    blogname = ''
-    posttext = 'New From Substack!'
+        running = False
+        match watcher.wtype:
+            case "comic":
+                watchercomic(watcher)
+            case "blog":
+                watcherblog(watcher)
+            case "youtube":
+                watcheryoutube(watcher)
+            case "patreon":
+                watcherpatreon(watcher)
+            case "twitch":
+                watchertwitch(watcher)
+
+        if not running:
+            jobname = "w" + str(watcher.id)
+            #scheduler.pause_job(jobname)
+
+def watchertwitch(watcher:Watcher):
+    return
+
+def watcherpatreon(watcher:Watcher):
+    return
+
+def watcherblog(watcher:Watcher):
+    feed_url = watcher.url
+    lastupdate = watcher.lastupdate
+    postcheckmarks = watcher.postcheckmarks
+    tbtags = watcher.tbtags
+    bstags = watcher.bstags
+    blogname = watcher.blogname
+    posttext = watcher.posttext
     #cycledelta is a list of time ---> days, weeks
-    cycledelta = [2,3]
+    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
+
     fileorder = {}
     fileindex = 0
     filenamelist = []
@@ -43,7 +70,9 @@ def watcherblog():
 
         #setting publish time
         publishdate = datetime.datetime.now() + timedelta(hours=5)
-        cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
+        cycledate = datetime.datetime.now() + timedelta(weeks=1)
+        if 'cycle' in postcheckmarks:
+            cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
         soup = BeautifulSoup(posts[0].content[0].value, 'html5lib')
         summarysoup = BeautifulSoup(posts[0].summary, 'html5lib')
@@ -71,6 +100,7 @@ def watcherblog():
                 postcheckmarks.remove('images')
                 postcheckmarks.remove('bshasimages')
                 postcheckmarks.remove('tbhasimages')
+                data['fileorder'] = '{}'
 
         #prep bluesky post data
         if 'bluesky' in postcheckmarks:
@@ -116,29 +146,39 @@ def watcherblog():
             data[postcheckmark] = postcheckmark
 
         #send to create post
-        postprocessor.processform(data, files, current_user.id)
+        postprocessor.processform(data, files, watcher.user_id)
 
         #update watcher
-        lastupdate = posts[0].published
-    return
+        if postprocessor.success:
+            watcher.lastupdate = posts[0].published
+            watcher.status = "Good"
+            watcher.running = True
+        else:
+            watcher.status = "Error"
+            watcher.running = False
 
-def watcheryoutube():
+        db.session.commit()
+    return watcher.running
+
+def watcheryoutube(watcher:Watcher):
     # url of youtube feed
-    feed_url = ""
-    lastupdate = ''
-    postcheckmarks = ['repost','cycle','tumblr','bluesky']
-    posttext = 'New Vid!'
-    tbtags = 'video'
-    bstags = '#video'
-    blogname = ''
+    feed_url = watcher.url
+    lastupdate = watcher.lastupdate
+    postcheckmarks = watcher.postcheckmarks
+    posttext = watcher.posttext
+    tbtags = watcher.tbtags
+    bstags = watcher.bstags
+    blogname = watcher.blogname
     #cycledelta is a list of time ---> days, weeks
-    cycledelta = [2,3]
+    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
 
     files = MultiDict() #This should remain empty
 
     #setting publish time
     publishdate = datetime.datetime.now() + timedelta(hours=5)
-    cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
+    cycledate = datetime.datetime.now() + timedelta(weeks=1)
+    if 'cycle' in postcheckmarks:
+        cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
     lastpublishdatetime = datetime.datetime.min.replace(tzinfo=ZoneInfo("UTC"))
     if lastupdate:
@@ -156,7 +196,10 @@ def watcheryoutube():
             data['scheduledate'] = publishdate.strftime("%Y-%m-%d")
             data['time'] = publishdate.strftime("%H:%M")
             data['cycledate'] = cycledate.strftime("%Y-%m-%d")
-            data['tags'] = newtags + ',' + tbtags
+            if newtags:
+                data['tags'] = newtags + ',' + tbtags
+            else:
+                data['tags'] = tbtags
             data['blogname'] = blogname
             data['fileorder'] = '{}'
             #add checks
@@ -170,8 +213,10 @@ def watcheryoutube():
                 bstext = '[{"attributes":{"link":"' + post.link + '"},"insert":"' + re.sub(r'([\"])', r'\\\1', post.title) + '"},{"insert":" '
                 if posttext:
                     bstext += posttext + ' '
-                bstext += newbstags + ' ' + bstags + '\\n"}]'
-                print(bstext)
+                if newtags:
+                    bstext += newbstags + ' ' + bstags + '\\n"}]'
+                else:
+                    bstext += bstags + '\\n"}]'
                 data.add('bstext1', bstext)
 
             #prep tumblr post data
@@ -192,39 +237,45 @@ def watcheryoutube():
 
              #send to create post
             postprocessor = Processpost(watcher_request=True)
-            postprocessor.processform(data, files, current_user.id)
+            postprocessor.processform(data, files, watcher.user_id)
 
             publishdate = publishdate + timedelta(days=7)
 
     if posts:
         #update watcher
-        lastupdate = posts[0].published
-    
-    return
+        if postprocessor.success:
+            watcher.lastupdate = posts[0].published
+            watcher.status = "Good"
+            watcher.running = True
+        else:
+            watcher.status = "Error"
+            watcher.running = False
 
-def watchercomic():
+        db.session.commit()
+    return watcher.running
+
+def watchercomic(watcher:Watcher):
     ua = ua_generator.generate()
     
-    URL = ''
-    searchkeys = []
-    titleprefix = ''
-    titlekey = ''
-    updatekey = ''
-    lastupdate = ''
-    slugkey = ''
-    archival = True
-    nextkey = ''
-    prevkey= ''
-    pagesperupdate = 3
-    posttext = 'Bi-Monthly Recap'
-    wtype = 'comic'
+    URL = watcher.url
+    searchkeys = watcher.searchkeys
+    titleprefix = watcher.titleprefix
+    titlekey = watcher.titlekey
+    updatekey = watcher.updatekey
+    lastupdate = watcher.lastupdate
+    slugkey = watcher.slugkey
+    archival = watcher.archival
+    nextkey = watcher.nextkey
+    prevkey= watcher.prevkey
+    pagesperupdate = watcher.pagesperupdate
+    posttext = watcher.posttext
 
-    postcheckmarks = ['repost','cycle','images','tumblr','bluesky','bshasimages','tbhasimages']
-    tbtags = 'comic,Tora Steals Things,gw2'
-    bstags = '#comic #webcomic'
-    blogname = ''
+    postcheckmarks = watcher.postcheckmarks
+    tbtags = watcher.tbtags
+    bstags = watcher.bstags
+    blogname = watcher.blogname
     #cycledelta is a list of time ---> days, weeks
-    cycledelta = [2,3]
+    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
 
     #variables exclusive to function
     fileorder = {}
@@ -246,25 +297,31 @@ def watchercomic():
     updatetext = getelement(updatekey, soup).get_text()
     if updatetext != lastupdate:
         postprocessor = Processpost(watcher_request=True)
-
         #check for extra pages
         if archival:
             nextattr = nextkey.split(':')
             nextdiv = soup.find(nextattr[0], attrs = {nextattr[1]:nextattr[2]} )
-            lasturl, nextpages = getnextpages(URL,nextdiv,nextattr,updatetext,updateattr,pagesperupdate)
+            lasturl, nextpages, updatetext = getnextpages(URL,nextdiv,nextattr,updatetext,updateattr,pagesperupdate)
         else:
-            prevattr = prevkey.split(':')
-            prevdiv = soup.find(prevattr[0], attrs = {prevattr[1]:prevattr[2]} )
-            firsturl, prevpages = getprevpages(URL,updatetext,prevdiv,prevattr,lastupdate,updateattr)
+            if lastupdate:
+                prevattr = prevkey.split(':')
+                prevdiv = soup.find(prevattr[0], attrs = {prevattr[1]:prevattr[2]} )
+                firsturl, prevpages = getprevpages(URL,updatetext,prevdiv,prevattr,lastupdate,updateattr)
 
         #setting publish time
         publishdate = datetime.datetime.now() + timedelta(hours=5)
-        cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
+        cycledate = datetime.datetime.now() + timedelta(weeks=1)
+        if 'cycle' in postcheckmarks:
+            cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
         #get slug if needed
         slug = ''
         if slugkey:
             slug = getelement(slugkey, soup).getText()
+        #prep source link for posts
+        sourcelink = URL + slug
+        if prevpages:
+            sourcelink = firsturl
 
         #title
         title = titleprefix
@@ -290,8 +347,11 @@ def watchercomic():
         #find image
         if 'images' in postcheckmarks:
             imgs = []
+            previmgs = []
             for prevpage in prevpages:
-                imgs = imgs + getimages(searchkeys,prevpage)
+                previmgs = previmgs + getimages(searchkeys,prevpage)
+            if previmgs:
+                imgs = list(reversed(previmgs))
             imgs = imgs + getimages(searchkeys,soup)
             for nextpage in nextpages:
                 imgs = imgs + getimages(searchkeys,nextpage)
@@ -315,7 +375,8 @@ def watchercomic():
             else: 
                 postcheckmarks.remove('images')
                 postcheckmarks.remove('bshasimages')
-                postcheckmarks.remove('tbhasimages')               
+                postcheckmarks.remove('tbhasimages')
+                data['fileorder'] = '{}'
 
         #prep bluesky post data
         if 'bluesky' in postcheckmarks:
@@ -336,7 +397,7 @@ def watchercomic():
                 txtpart = ''
                 if (bsskeetlen > 1):
                     txtpart = ' (pt ' + str(i + 1) + ') '
-                bstext = '[{"attributes":{"link":"' + URL + slug + '"},"insert":"' + title + txtpart + '"},'
+                bstext = '[{"attributes":{"link":"' + sourcelink + '"},"insert":"' + title + txtpart + '"},'
                 if posttext:
                     bstext += '{"insert":"\\n' + posttext + '\\n"},'
                 bstext += '{"insert":" ' + bstags + '\\n"}]'
@@ -356,7 +417,7 @@ def watchercomic():
             tbtext = '[{"insert":"' + title + '"},{"attributes":{"header":1},"insert":"\\n"},'
             if posttext:
                 tbtext += '{"insert":"\\n' + posttext + '\\n"},'
-            tbtext += '{"insert":"\\n(Source: ' + URL + slug + ')\\n"}]'
+            tbtext += '{"insert":"\\n(Source: ' + sourcelink + ')\\n"}]'
             data.add('tbtext' + str(tbindex), tbtext)
 
 
@@ -373,28 +434,36 @@ def watchercomic():
             data[postcheckmark] = postcheckmark
 
         #send to create post
-        postprocessor.processform(data, files, current_user.id)
+        postprocessor.processform(data, files, watcher.user_id)
 
         #update watcher
-        lastupdate = updatetext
-        if archival:
-            tempsoup = soup
-            if nextpages:
-                tempsoup = nextpages[-1]
-            nextdiv = getelement(nextkey, tempsoup)
-            if nextdiv:
-                url_prefix = ''
-                if nextdiv['rel']:
-                    url_parsed = urlparse(URL)
-                    url_prefix = url_parsed.scheme + '://' + url_parsed.netloc
+        if postprocessor.success:
+            watcher.lastupdate = updatetext
+            watcher.status = "Good"
+            watcher.running = True
+            if archival:
+                tempsoup = soup
+                if nextpages:
+                    tempsoup = nextpages[-1]
+                nextdiv = getelement(nextkey, tempsoup)
+                if nextdiv:
+                    url_prefix = ''
+                    if "http" not in nextdiv['href']:
+                        url_parsed = urlparse(URL)
+                        url_prefix = url_parsed.scheme + '://' + url_parsed.netloc
 
-                URL = url_prefix + nextdiv['href']
-            else:
-                #cancel the watcher and turn off!
-                pass
+                    watcher.url = url_prefix + nextdiv['href']
+                else:
+                    #cancel the watcher and turn off!
+                    watcher.status = "Paused"
+                    watcher.running = False
+        else:
+            watcher.status = "Error"
+            watcher.running = False
 
-    else:
-        print('nothin ta see here')
+        db.session.commit()
+
+    return watcher.running
 
 def getslug(fullurl):
     url_parsed = urlparse(fullurl)
@@ -437,10 +506,11 @@ def getnextpages(URL,nextdiv,nextattr,currentupdate,updateattr,pagesperupdate):
     lasturl = URL
     nextpages = []
     updatetext = currentupdate
+    lastupdate = currentupdate
     if not nextdiv:
         updatetext = 'none'
         pagesperupdate = 0
-    while updatetext == currentupdate or pagesperupdate > 0:
+    while updatetext == currentupdate or pagesperupdate > 1:
         tempurl = nextdiv['href']
         r = requests.get(url=url_prefix + tempurl,headers=ua.headers.get())
         tempsoup = BeautifulSoup(r.content, 'html5lib')
@@ -449,25 +519,27 @@ def getnextpages(URL,nextdiv,nextattr,currentupdate,updateattr,pagesperupdate):
         if not nextdiv:
             updatetext = 'none'
             pagesperupdate = 0
-        if updatetext == currentupdate or pagesperupdate > 0:
+        if updatetext == currentupdate or pagesperupdate > 1:
             lasturl = tempurl
+            lastupdate = updatetext
             nextpages.append(tempsoup)
         pagesperupdate = pagesperupdate - 1
         if pagesperupdate <= 0:
             updatetext = 'none'
-    return (lasturl,nextpages)
+    return (lasturl,nextpages,lastupdate)
 
 def getimages(searchkeys,soup):
+    imgs = []
     for searchkey in searchkeys:
-        divattr = searchkey.split(':')
-        imgs = []
-        if divattr[0] != 'img':
-            imgdivs = soup.findAll(divattr[0], attrs = {divattr[1]:divattr[2]})
-            for imgdiv in imgdivs:
-                divimgs = imgdiv.findAll('img')
-                imgs = imgs + divimgs
-        else:
-            imgs = soup.findAll(divattr[0], attrs = {divattr[1]:divattr[2]})
+        if not imgs:
+            divattr = searchkey.split(':')
+            if divattr[0] != 'img':
+                imgdivs = soup.findAll(divattr[0], attrs = {divattr[1]:divattr[2]})
+                for imgdiv in imgdivs:
+                    divimgs = imgdiv.findAll('img')
+                    imgs = imgs + divimgs
+            else:
+                imgs = soup.findAll(divattr[0], attrs = {divattr[1]:divattr[2]})
 
     return imgs
 
@@ -478,8 +550,10 @@ def generatetags(searchtext):
     hashtag_list = re.findall(regex, searchtext)
     for hashtag in hashtag_list:
         tags += hashtag + ','
-       
-    return tags[:-1]
+    
+    if hashtag_list:
+        tags = tags[:-1]
+    return tags
 
 class WatcherFile:
   def __init__(self, filename, url):

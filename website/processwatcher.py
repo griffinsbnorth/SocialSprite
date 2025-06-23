@@ -1,3 +1,4 @@
+import sched
 from flask import current_app
 import re
 import os
@@ -30,9 +31,9 @@ class Processwatcher():
 
     def removejob(self):
         if self.watcherid != -1:
-            job = scheduler.get_job(str(self.watcherid))
+            job = scheduler.get_job("w" + str(self.watcherid))
             if job:
-                scheduler.remove_job(str(self.watcherid))
+                scheduler.remove_job("w" + str(self.watcherid))
 
 
     def processform(self, data, userid):
@@ -66,7 +67,7 @@ class Processwatcher():
         tbtags = data.get('ttags')
 
         posttext = data.get('posttext')
-        searchkeys = ""
+        searchkeys = []
         titleprefix = ""
         titlekey = ""
         updatekey = ""
@@ -86,7 +87,8 @@ class Processwatcher():
         if (not tumblr and not bluesky):
             self.message += 'No social media selected for post generation.' + '\n'
         if (wtype == "comic"):
-            searchkeys = data.get('searchkeys')
+            searchkeysstring = data.get('searchkeys')
+            searchkeys = searchkeysstring.split(',')
             titleprefix = data.get('titleprefix')
             titlekey = data.get('titlekey')
             updatekey = data.get('updatekey')
@@ -94,22 +96,18 @@ class Processwatcher():
             nextkey = data.get('nextkey')
             slugkey = data.get('slugkey')
             archival = data.get('archival') != None
-            pagenum = data.get('pagenum')
+            pagenum = int(data.get('pagenum'))
             if (archival and pagenum == 0):
                 self.message += 'Pages per update can\'t be empty if archival.' + '\n'
-            if (titlekey == "slug"):
-                if not slugkey:
-                    self.message += 'Slug key can\'t be empty if titlekey is "slug".' + '\n'
-                else:
-                    self.message += self.validatesearchkey(slugkey)
-            else:
+            if (titlekey != "slug"):
                 self.message += self.validatesearchkey(titlekey)
+            if slugkey:
+                self.message += self.validatesearchkey(slugkey)
             self.message += self.validatesearchkey(updatekey)
             self.message += self.validatesearchkey(prevkey)
             self.message += self.validatesearchkey(nextkey)
             if searchkeys:
-                searchkeylist = searchkeys.split(',')
-                for searchkey in searchkeylist:
+                for searchkey in searchkeys:
                     self.message += self.validatesearchkey(searchkey)
             else:
                 self.message += 'Image search keys can\'t be empty.' + '\n'
@@ -168,7 +166,7 @@ class Processwatcher():
             if self.watcherid == -1:
                 dbwatcher.lastupdate = ""
                 dbwatcher.lastran = datetime.datetime.now().astimezone(ZoneInfo("UTC"))
-                dbwatcher.status = "running"
+                dbwatcher.status = "Good"
                 dbwatcher.running = True
                 db.session.add(dbwatcher)
 
@@ -189,18 +187,19 @@ class Processwatcher():
                 daylist_str = '*'
             hour_str = '*'
             if hour != '-1':
-                hour_str = month
+                hour_str = hour
             minute_str = '*'
             if minute != '-1':
                 minute_str = minute
             
             print(month_str + ' ' + day_of_month_str + ' ' + hour_str + ' ' + minute_str + ' ' + daylist_str)
-            job = scheduler.get_job(str(dbwatcher.id))
+            jobname = "w" + str(dbwatcher.id)
+            job = scheduler.get_job(jobname)
             if job:
-                scheduler.modify_job(str(dbwatcher.id),"default",trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
+                job = scheduler.modify_job(jobname,"default",trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
                 print(f"Watcher rescheduled for: {job.next_run_time}")
             else:
-                job = scheduler.add_job(str(dbwatcher.id),watcher,args=[dbwatcher.id],trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
+                job = scheduler.add_job(jobname,watcher,args=[dbwatcher.id],trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
                 print(f"Watcher scheduled for: {job.next_run_time}")
 
         #set success flag
@@ -211,3 +210,18 @@ class Processwatcher():
             else:
                 self.message = 'Watcher successfully edited'
         return
+
+    def setwatcher(self,running):
+        
+        jobname = "w" + str(self.watcherid)
+        job = scheduler.get_job(jobname)
+        if job:
+            if running:
+                job.resume()
+                print(f"Watcher resumed schedule for: {job.next_run_time}")
+            else:
+                job.pause()
+                print(f"Watcher paused.")
+        else:
+            print("Job for watcher not found")
+

@@ -5,9 +5,6 @@ from .models import Image as DBImage
 from config import Config
 from .processpost import Processpost
 from .processwatcher import Processwatcher
-from .watcher import watcher
-import os
-import datetime
 from zoneinfo import ZoneInfo
 from . import db
 import json
@@ -191,7 +188,7 @@ def editwatcher(watcherid):
         'bluesky': 'bluesky' in postcheckmarks,
         'tbhasimages': 'tbhasimages' in postcheckmarks,
         'bshasimages': 'bshasimages' in postcheckmarks,
-        'archival': 'archival' in postcheckmarks,
+        'archival': editwatcher.archival,
         'blogname': editwatcher.blogname,
         'ttags': editwatcher.tbtags,
         'bstags': editwatcher.bstags,
@@ -223,14 +220,41 @@ def queuepage():
 
 @views.route('/deletewatcher', methods=['POST'])
 def delete_watcher():  
-    watcher = json.loads(request.data)
-    watcherid = watcher['watcherid']
+    data = json.loads(request.data)
+    watcherid = data['watcherid']
     watcher = Watcher.query.get(watcherid)
     if watcher:
         if watcher.user_id == current_user.id:
             watcherprocessor = Processwatcher(watcherid)
             watcherprocessor.removejob()
             db.session.delete(watcher)
+            db.session.commit()
+
+    return jsonify({})
+
+@views.route('/runwatcher', methods=['POST'])
+def runwatcher():  
+    data = json.loads(request.data)
+    watcherid = data['watcherid']
+    from .watcher import watcher
+    watcher(watcherid)
+
+    return jsonify({})
+
+@views.route('/setwatcherstatus', methods=['POST'])
+def setwatcherstatus():  
+    data = json.loads(request.data)
+    watcherid = data['watcherid']
+    watcher = Watcher.query.get(watcherid)
+    if watcher:
+        if watcher.user_id == current_user.id:
+            watcherprocessor = Processwatcher(watcherid)
+            watcher.running = not watcher.running
+            watcherprocessor.setwatcher(watcher.running)
+            if watcher.running:
+                watcher.status = "Good"
+            else:
+                watcher.status = "Paused"
             db.session.commit()
 
     return jsonify({})
@@ -271,6 +295,7 @@ def delete_post():
             #delete tumblr blocks associated with post
             Tumblrblock.query.filter(Tumblrblock.post_id == postid).delete()
             #delete unpublished postjobs
+            postprocessor.removejobs()
             Postjob.query.filter(Postjob.post_id == postid, Postjob.published == False).delete()
             db.session.commit()
 
@@ -304,6 +329,19 @@ def edit_cycle():
             db.session.commit()
 
     return jsonify({})
+
+@views.route('/deletepostjob', methods=['POST'])
+def deletepostjob():  
+    postjobdata = json.loads(request.data)
+    postjobid = postjobdata['postjobid']
+    postjob = Postjob.query.get(postjobid)
+    if postjob:
+        if postjob.user_id == current_user.id:
+            db.session.delete(postjob)
+            db.session.commit()
+
+    return jsonify({})
+
 
 @views.route('/loadfile', methods=['GET'])
 def loadfile():

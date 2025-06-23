@@ -44,6 +44,14 @@ class Processpost():
     def sanitize_input(self, user_input):
         return re.sub(r'[^\w\s]', '', user_input)  # Removes special characters
 
+    def removejobs(self):
+        if self.postid != -1:
+            postjobs = Postjob.query.filter(Postjob.post_id == self.postid, Postjob.published == False)
+            for postjob in postjobs:
+                job = scheduler.get_job(str(postjob.id))
+                if job:
+                    scheduler.remove_job(str(postjob.id))
+
     def processform(self, data, files, userid):
         #print(files)
         print(data)
@@ -273,8 +281,13 @@ class Processpost():
                 imgpath = os.path.join(Config.UPLOAD_FOLDER, sfilename)
                 if self.watcher_request:
                     ua = ua_generator.generate()
+                    fileextension = imgfile.url.rsplit('.', 1)[1].lower()
                     r = requests.get(imgfile.url, stream=True, headers=ua.headers.get())
                     if r.status_code == 200:
+                        if fileextension == "gif":
+                            sfilename = sfilename.replace('.gif','.png')
+                            imgpath = os.path.join(Config.UPLOAD_FOLDER, sfilename)
+
                         im = PILImage.open(io.BytesIO(r.content))
                         im.save(imgpath)
                     else:
