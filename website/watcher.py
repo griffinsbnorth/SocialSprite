@@ -29,8 +29,6 @@ def watcher(watcherid):
                 watcherblog(watcher)
             case "youtube":
                 watcheryoutube(watcher)
-            case "patreon":
-                watcherpatreon(watcher)
             case "twitch":
                 watchertwitch(watcher)
 
@@ -39,9 +37,6 @@ def watcher(watcherid):
             scheduler.pause_job(jobname)
 
 def watchertwitch(watcher:Watcher):
-    return
-
-def watcherpatreon(watcher:Watcher):
     return
 
 def watcherblog(watcher:Watcher):

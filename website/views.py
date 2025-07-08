@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, current_app, flash, jsonify, send_file
 from flask_login import login_required, current_user
-from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob, Watcher
+from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob, Watcher, User
 from .models import Image as DBImage
 from config import Config
 from .processpost import Processpost
@@ -8,6 +8,12 @@ from .processwatcher import Processwatcher
 from zoneinfo import ZoneInfo
 from . import db
 import json
+import hmac
+import hashlib
+import os
+from werkzeug.datastructures import MultiDict
+import datetime
+from datetime import timedelta
 
 views = Blueprint('views', __name__)
 
@@ -350,6 +356,92 @@ def loadfile():
     filepath = Config.UPLOAD_FOLDER + '/' + source
 
     return send_file(filepath)
+
+@views.route("/patreonpost", methods=["POST"])
+def patreon_post():
+    """
+    Endpoint to receive Patreon webhook events
+    """
+    from dotenv import load_dotenv
+    load_dotenv()
+    # Verify the webhook signature
+    webhook_secret = os.getenv("PATREON_WEBHOOK_SECRET")
+    
+    signature = request.headers.get("X-Patreon-Signature")
+    if not signature:
+        print("No signature")
+        return jsonify({"error": "No signature"}), 401
+    
+    # Verify signature
+    body = request.get_data()
+    expected_sig = hmac.new(
+        webhook_secret.encode('utf-8'),
+        body,
+        hashlib.md5
+    ).hexdigest()
+    
+    if signature != expected_sig:
+        print("Invalid signature")
+        return jsonify({"error": "Invalid signature"}), 401
+    
+    # Process the webhook
+    data = request.json
+    
+    if data.get("data", {}).get("type") == "post":
+        blacklist = ['The stream is up!']
+        post_data = data["data"]
+        publishdate = datetime.datetime.now() + timedelta(hours=1)
+        cycledate = datetime.datetime.now() + timedelta(weeks=5)
+        user = User.query.filter(User.username == os.getenv("SS_USERNAME")).first()
+
+        if not user:
+            print("Found no user")
+            return jsonify({"error": "Found no user"}), 401
+
+        # Latest post
+        latest_post = {
+            "id": post_data["id"],
+            "title": post_data["attributes"].get("title", ""),
+            "content": post_data["attributes"].get("content", ""),
+            "url": 'https://www.patreon.com' + post_data["attributes"].get("url", ""),
+            "published_at": post_data["attributes"].get("published_at", "")
+        }
+
+        for blackitem in blacklist:
+            if blackitem in latest_post['content']:
+                return jsonify({"status": "ok"}), 200
+            if blackitem in latest_post['title']:
+                return jsonify({"status": "ok"}), 200
+
+        tags = 'patreon'
+        bstags = '#patreon'
+
+        pdata = MultiDict()
+        pdata['title'] = latest_post['title']
+        pdata['scheduledate'] = publishdate.strftime("%Y-%m-%d")
+        pdata['time'] = publishdate.strftime("%H:%M")
+        pdata['cycledate'] = cycledate.strftime("%Y-%m-%d")
+        pdata['tags'] = tags
+        pdata['blogname'] = ''
+        pdata['fileorder'] = '{}'
+        pdata['tumblr'] = 'tumblr'
+        pdata['bluesky'] = 'bluesky'
+        pdata['repost'] = 'repost'
+        pdata['cycle'] = 'cycle'
+        pdata.add('bsskeetlen', '1')
+        bstext = '[{"attributes":{"link":"' + latest_post['url'] + '"},"insert":"' + latest_post['title'] + '"},{"insert":"New post up on patreon! ' +  bstags + '\\n"}]'
+        pdata.add('bstext1', bstext)
+        pdata.add('tbtype', 'link:1')
+        pdata.add('tbtype', 'text:2')
+        pdata.add('tblink1url', latest_post['url'])
+        tbtext = '[{"insert":"' + latest_post['title'] + '"},{"attributes":{"header":1},"insert":"\\n"},{"insert":"New post up on patreon!\\n"}]'
+        pdata.add('tbtext2', tbtext)
+
+        files = MultiDict() #This should remain empty
+        postprocessor = Processpost()
+        postprocessor.processform(pdata, files, user.id)
+    
+    return jsonify({"status": "ok"}), 200
 
 def getimagefiles(postid):
     imagefiles = DBImage.query.filter(DBImage.post_id == postid).order_by(DBImage.order).all()
