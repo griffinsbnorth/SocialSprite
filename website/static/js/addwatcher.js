@@ -195,6 +195,8 @@ function changeForm(val) {
     const iscomic = (val == "comic");
     const isrss = (val == "blog" || val == "youtube");
     const imgchkbox = document.getElementById('images');
+    const repostchkbox = document.getElementById('repost');
+    const cyclechkbox = document.getElementById('cycle');
     document.getElementById('comicform').hidden = !iscomic;
     document.getElementById('rssmsg').hidden = !isrss
     document.getElementById('currentcomicmsg').hidden = !(iscomic && !archivalcheck);
@@ -209,11 +211,25 @@ function changeForm(val) {
         imgchkbox.checked = true
         toggleSection()
         imgchkbox.disabled = true
+        cyclechkbox.disabled = false
+        repostchkbox.disabled = false
     } else if (val == "youtube") {
         imgchkbox.checked = false
         imgchkbox.disabled = true
+        cyclechkbox.disabled = false
+        repostchkbox.disabled = false
+        toggleSection()
+    } else if (val == "twitch") {
+        imgchkbox.checked = false
+        imgchkbox.disabled = true
+        repostchkbox.checked = false
+        repostchkbox.disabled = true
+        cyclechkbox.checked = false
+        cyclechkbox.disabled = true
         toggleSection()
     } else {
         imgchkbox.disabled = false
+        cyclechkbox.disabled = false
+        repostchkbox.disabled = false
     }
 }
