@@ -258,9 +258,10 @@ class Processpost():
                  deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id).delete()
                  if deletebsresult > 0:
                      db.session.commit()
+             
+             #create post job
+             self.generate_post_jobs(dbpost)
 
-        #create post job
-        self.generate_post_jobs(dbpost)
         #set success flag
         self.success = (self.message == '')
         if self.success:

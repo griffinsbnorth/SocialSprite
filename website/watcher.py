@@ -1,5 +1,6 @@
 import re
 from xmlrpc.client import MAXINT
+import pytz
 import requests
 from bs4 import BeautifulSoup
 import datetime
@@ -15,6 +16,9 @@ import json
 import ua_generator
 import feedparser
 from . import db, scheduler
+from dotenv import load_dotenv
+import os
+from config import Config
 
 def watcher(watcherid):
     app = scheduler.app
@@ -37,7 +41,111 @@ def watcher(watcherid):
             scheduler.pause_job(jobname)
 
 def watchertwitch(watcher:Watcher):
-    return
+    stream_url = watcher.url
+    postcheckmarks = watcher.postcheckmarks
+    tbtags = watcher.tbtags
+    bstags = watcher.bstags
+    blogname = watcher.blogname
+    posttext = watcher.posttext
+    #cycledelta is a list of time ---> days, weeks
+    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
+
+    data = MultiDict()
+    files = MultiDict()
+
+    load_dotenv()
+    client_id = os.getenv("TWITCH_CLIENT_ID")
+    client_secret = os.getenv("TWITCH_CLIENT_SECRET")
+    streamer = stream_url.split('/').pop()
+
+    #get API access token
+    token_url = "https://id.twitch.tv/oauth2/token"
+    token_data = {
+        'client_id': client_id,
+        'client_secret': client_secret,
+        'grant_type': 'client_credentials'
+    }
+    
+    token_response = requests.post(token_url, data=token_data)
+    access_token = token_response.json()['access_token']
+
+    # Get user ID
+    headers = {
+        'Client-ID': client_id,
+        'Authorization': f'Bearer {access_token}'
+    }
+    
+    user_response = requests.get(
+        "https://api.twitch.tv/helix/users",
+        headers=headers,
+        params={'login': streamer}
+    )
+    
+    user_id = user_response.json()['data'][0]['id']
+    
+    # Check stream status
+    stream_response = requests.get(
+        "https://api.twitch.tv/helix/streams",
+        headers=headers,
+        params={'user_id': user_id}
+    )
+    stream_data = stream_response.json()["data"]
+    islive = bool(stream_data)
+
+    #create post if live
+    if islive:
+        #setting publish time
+        tz = pytz.timezone(Config.TIMEZONE)
+        publishdate = datetime.datetime.now(tz) + timedelta(minutes=5)
+        cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
+        print(publishdate.tzinfo)
+
+        data['title'] = stream_data[0]['title'] + ' ' + publishdate.strftime("%Y-%m-%d")
+        data['scheduledate'] = publishdate.strftime("%Y-%m-%d")
+        data['time'] = publishdate.strftime("%H:%M")
+        data['cycledate'] = cycledate.strftime("%Y-%m-%d")
+        data['tags'] = tbtags
+        data['blogname'] = blogname
+        data['fileorder'] = '{}'
+        #add checks
+        for postcheckmark in postcheckmarks:
+            data[postcheckmark] = postcheckmark
+            
+        #prep bluesky post data
+        if 'bluesky' in postcheckmarks:
+            data.add('bsskeetlen', '1')
+            bstext = '[{"attributes":{"link":"' + stream_url + '"},"insert":"' + stream_data[0]['title'] + '"},{"insert":" '
+            if posttext:
+                bstext += posttext + ' '
+            bstext +=  bstags + '\\n"}]'
+            data.add('bstext1', bstext)
+
+        #prep tumblr post data
+        if 'tumblr' in postcheckmarks:
+            data.add('tbtype', 'link:1')
+            data.add('tbtype', 'text:2')
+            data.add('tblink1url', stream_url)
+            tbtext = '[{"insert":"' + stream_data[0]['title'] + '"},{"attributes":{"header":1},"insert":"\\n"}'
+            if posttext:
+                tbtext += ',{"insert":"\\n' + posttext + '\\n"}'
+            tbtext += ']'
+            data.add('tbtext2', tbtext)
+
+        #send to create post
+        postprocessor = Processpost(watcher_request=True)
+        postprocessor.processform(data, files, watcher.user_id)
+
+        #update watcher
+        if postprocessor.success:
+            watcher.lastupdate = stream_data[0]['started_at']
+            watcher.status = "Good"
+            watcher.running = True
+        else:
+            watcher.status = "Error"
+            watcher.running = False
+
+        db.session.commit()
+    return watcher.running
 
 def watcherblog(watcher:Watcher):
     feed_url = watcher.url
@@ -63,8 +171,9 @@ def watcherblog(watcher:Watcher):
         postprocessor = Processpost(watcher_request=True)
 
         #setting publish time
-        publishdate = datetime.datetime.now() + timedelta(hours=5)
-        cycledate = datetime.datetime.now() + timedelta(weeks=1)
+        tz = pytz.timezone(Config.TIMEZONE)
+        publishdate = datetime.datetime.now(tz) + timedelta(hours=5)
+        cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
         if 'cycle' in postcheckmarks:
             cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
@@ -169,8 +278,9 @@ def watcheryoutube(watcher:Watcher):
     files = MultiDict() #This should remain empty
 
     #setting publish time
-    publishdate = datetime.datetime.now() + timedelta(hours=5)
-    cycledate = datetime.datetime.now() + timedelta(weeks=1)
+    tz = pytz.timezone(Config.TIMEZONE)
+    publishdate = datetime.datetime.now(tz) + timedelta(hours=5)
+    cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
     if 'cycle' in postcheckmarks:
         cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
@@ -303,8 +413,9 @@ def watchercomic(watcher:Watcher):
                 firsturl, prevpages = getprevpages(URL,updatetext,prevdiv,prevattr,lastupdate,updateattr)
 
         #setting publish time
-        publishdate = datetime.datetime.now() + timedelta(hours=5)
-        cycledate = datetime.datetime.now() + timedelta(weeks=1)
+        tz = pytz.timezone(Config.TIMEZONE)
+        publishdate = datetime.datetime.now(tz) + timedelta(hours=5)
+        cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
         if 'cycle' in postcheckmarks:
             cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
