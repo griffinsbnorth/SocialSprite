@@ -1,5 +1,6 @@
 from flask import Blueprint, render_template, request, current_app, flash, jsonify, send_file
 from flask_login import login_required, current_user
+from sqlalchemy.sql.dml import ReturningUpdate
 from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob, Watcher, User
 from .models import Image as DBImage
 from config import Config
@@ -72,6 +73,9 @@ def editpost(postid):
             flash(postprocessor.message, category='error')
 
     editpost = Post.query.get(postid)
+    if not editpost:
+        return render_template("404.html", user=current_user)
+
     scheduledatetime = editpost.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
     cycledatetime = editpost.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
     skeetsdata = getskeets(postid)
@@ -168,6 +172,9 @@ def editwatcher(watcherid):
             flash(watcherprocessor.message, category='error')
 
     editwatcher = Watcher.query.get(watcherid)
+    if not editwatcher:
+        return render_template("404.html", user=current_user)
+
     scheduledata = editwatcher.scheduledata
     cycledelta = editwatcher.cycledelta
     postcheckmarks = editwatcher.postcheckmarks
