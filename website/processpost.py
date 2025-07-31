@@ -53,214 +53,217 @@ class Processpost():
                     scheduler.remove_job(str(postjob.id))
 
     def processform(self, data, files, userid):
-        #print(files)
-        print(data)
-        self.message = ''
-
-        title = data.get('title')
-        scheduledate = data.get('scheduledate')
-        cycledate = data.get('cycledate')
-        time = data.get('time')
-        if (time == ''):
-            time = '00:00'
-        repost = data.get('repost') != None
-        cycle = data.get('cycle') != None
-        images = data.get('images') != None
-        imagefiles = files.getlist('imgupload')
-        fileorder = json.loads(str(data.get('fileorder')))
-        watermarks = data.getlist('watermark')
-        if watermarks == None:
-            watermarks = []
-        tumblr = data.get('tumblr') != None
-        tumblrblocklist = data.getlist('tbtype')
-        blogname = data.get('blogname')
-        if blogname == '':
-            blogname = os.getenv("BLOGNAME")
-        bluesky = data.get('bluesky') != None
-        bsskeetsnumber = int(data.get('bsskeetlen'))
-        tags = ''
-        if tumblr:
-            tags = data.get('tags')
-        tumblrhasimages = data.get('tbhasimages') != None
-        blueskyhasimages = data.get('bshasimages') != None
-
-        validtitle = self.validatetextfield('Title', title, 150)
-        validscheduledate = True
-        validcycledate = True
-        publishdatetime = datetime.datetime.now()
-        cycledatetime = datetime.datetime.now()
-
-        #create dates
         try:
-            publishdatetime = datetime.datetime.strptime(scheduledate + "T" + time, "%Y-%m-%dT%H:%M").replace(tzinfo=ZoneInfo(Config.TIMEZONE))
-            validscheduledate = bool(publishdatetime)
-        except ValueError:
-            validscheduledate = False
+            #print(files)
+            print(data)
+            self.message = ''
+
+            title = data.get('title')
+            scheduledate = data.get('scheduledate')
+            cycledate = data.get('cycledate')
+            time = data.get('time')
+            if (time == ''):
+                time = '00:00'
+            repost = data.get('repost') != None
+            cycle = data.get('cycle') != None
+            images = data.get('images') != None
+            imagefiles = files.getlist('imgupload')
+            fileorder = json.loads(str(data.get('fileorder')))
+            watermarks = data.getlist('watermark')
+            if watermarks == None:
+                watermarks = []
+            tumblr = data.get('tumblr') != None
+            tumblrblocklist = data.getlist('tbtype')
+            blogname = data.get('blogname')
+            if blogname == '':
+                blogname = os.getenv("BLOGNAME")
+            bluesky = data.get('bluesky') != None
+            bsskeetsnumber = int(data.get('bsskeetlen'))
+            tags = ''
+            if tumblr:
+                tags = data.get('tags')
+            tumblrhasimages = data.get('tbhasimages') != None
+            blueskyhasimages = data.get('bshasimages') != None
+
+            validtitle = self.validatetextfield('Title', title, 150)
+            validscheduledate = True
+            validcycledate = True
+            publishdatetime = datetime.datetime.now()
+            cycledatetime = datetime.datetime.now()
+
+            #create dates
+            try:
+                publishdatetime = datetime.datetime.strptime(scheduledate + "T" + time, "%Y-%m-%dT%H:%M").replace(tzinfo=ZoneInfo(Config.TIMEZONE))
+                validscheduledate = bool(publishdatetime)
+            except ValueError:
+                validscheduledate = False
                 
-        try:
-            cycledatetime = datetime.datetime.strptime(cycledate, "%Y-%m-%d").replace(tzinfo=ZoneInfo(Config.TIMEZONE))
-            validcycledate = bool(cycledatetime)
-        except ValueError:
-            validcycledate = False
+            try:
+                cycledatetime = datetime.datetime.strptime(cycledate, "%Y-%m-%d").replace(tzinfo=ZoneInfo(Config.TIMEZONE))
+                validcycledate = bool(cycledatetime)
+            except ValueError:
+                validcycledate = False
 
-        if not validtitle['status']:
-            self.message += validtitle['message'] + '\n'
-        elif scheduledate == '':
-            self.message += 'Missing schedule date.' + '\n'
-        elif cycledate == '':
-            self.message += 'Missing cycle date.' + '\n'
-        elif not validscheduledate:
-            self.message += 'Invalid schedule date.' + '\n'
-            scheduledate = ''
-        elif not validcycledate:
-            self.message += 'Invalid cycle date.' + '\n'
-            cycledate = ''
-        elif images and not fileorder:
-            self.message += 'No attached images for image post.' + '\n'
-        elif images and not tumblrhasimages and not blueskyhasimages:
-            self.message += 'No selected images for image post.' + '\n'
-        elif tumblr and not tumblrblocklist:
-             self.message += 'Tumblr post has no blocks' + '\n'
-        elif tumblr and tags == '':
-             self.message += 'Tumblr post needs tags' + '\n'
-        elif bluesky and not bsskeetsnumber:
-             self.message += 'BlueSky post has no skeets' + '\n'
-        else:
-             processedimagefiles = []
+            if not validtitle['status']:
+                self.message += validtitle['message'] + '\n'
+            elif scheduledate == '':
+                self.message += 'Missing schedule date.' + '\n'
+            elif cycledate == '':
+                self.message += 'Missing cycle date.' + '\n'
+            elif not validscheduledate:
+                self.message += 'Invalid schedule date.' + '\n'
+                scheduledate = ''
+            elif not validcycledate:
+                self.message += 'Invalid cycle date.' + '\n'
+                cycledate = ''
+            elif images and not fileorder:
+                self.message += 'No attached images for image post.' + '\n'
+            elif images and not tumblrhasimages and not blueskyhasimages:
+                self.message += 'No selected images for image post.' + '\n'
+            elif tumblr and not tumblrblocklist:
+                 self.message += 'Tumblr post has no blocks' + '\n'
+            elif tumblr and tags == '':
+                 self.message += 'Tumblr post needs tags' + '\n'
+            elif bluesky and not bsskeetsnumber:
+                 self.message += 'BlueSky post has no skeets' + '\n'
+            else:
+                 processedimagefiles = []
                 
-             dbpost = Post()
-             if self.postid != -1:
-                 dbpost = Post.query.get(self.postid)
+                 dbpost = Post()
+                 if self.postid != -1:
+                     dbpost = Post.query.get(self.postid)
 
-             dbpost.user_id = userid
-             dbpost.title = title
-             dbpost.publishdate = publishdatetime.astimezone(ZoneInfo("UTC"))
-             dbpost.repost = repost
-             dbpost.cycle = cycle
-             dbpost.cycledate = cycledatetime.astimezone(ZoneInfo("UTC"))
-             dbpost.containsimages = images
-             dbpost.fortumblr = tumblr
-             dbpost.forbluesky = bluesky
-             dbpost.tumblrtags= []
-             dbpost.blogname = blogname
-             if self.postid == -1:
-                 db.session.add(dbpost)
+                 dbpost.user_id = userid
+                 dbpost.title = title
+                 dbpost.publishdate = publishdatetime.astimezone(ZoneInfo("UTC"))
+                 dbpost.repost = repost
+                 dbpost.cycle = cycle
+                 dbpost.cycledate = cycledatetime.astimezone(ZoneInfo("UTC"))
+                 dbpost.containsimages = images
+                 dbpost.fortumblr = tumblr
+                 dbpost.forbluesky = bluesky
+                 dbpost.tumblrtags= []
+                 dbpost.blogname = blogname
+                 if self.postid == -1:
+                     db.session.add(dbpost)
 
-             db.session.commit()
-
-             pastimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).all()
-             pastimagesfound = len(pastimagefiles) > 0
-             #Prep images for post (if there's images)
-             if images:
-                 #Prep new images
-                 processedimagefiles = self.processimages(imagefiles, dbpost.id, fileorder, watermarks)
-                 #Prep past images
-                 for pastimage in pastimagefiles:
-                     neworder = fileorder.get(pastimage.url, None)
-                     if neworder != None:
-                         pastimage.order = neworder
-                         pastimage.ready = pastimage.url not in watermarks
-                     else:
-                         self.delete_image(pastimage)
-             else:
-                 #delete any past associated images
-                 for pastimage in pastimagefiles:
-                     self.delete_image(pastimage)
-
-             if pastimagesfound:
                  db.session.commit()
 
-             finalimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).order_by(DBImage.order).all()
-             
-             #Prep Tumblr post blocks
-             if tumblr:
-                 addtbimages = images and tumblrhasimages
-                 deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id, Tumblrblock.order > len(tumblrblocklist)).delete()
-                 if deletetbresult > 0:
+                 pastimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).all()
+                 pastimagesfound = len(pastimagefiles) > 0
+                 #Prep images for post (if there's images)
+                 if images:
+                     #Prep new images
+                     processedimagefiles = self.processimages(imagefiles, dbpost.id, fileorder, watermarks)
+                     #Prep past images
+                     for pastimage in pastimagefiles:
+                         neworder = fileorder.get(pastimage.url, None)
+                         if neworder != None:
+                             pastimage.order = neworder
+                             pastimage.ready = pastimage.url not in watermarks
+                         else:
+                             self.delete_image(pastimage)
+                 else:
+                     #delete any past associated images
+                     for pastimage in pastimagefiles:
+                         self.delete_image(pastimage)
+
+                 if pastimagesfound:
                      db.session.commit()
 
-                 dbtblocks = []
-                 tbindex = 1
-                 for tumblrblock in tumblrblocklist:
-                     tbdata = tumblrblock.split(':')
-                     match tbdata[0]:
-                        case 'photo':
-                             if addtbimages:
-                                 tbimgs = data.getlist('imgcheckbox' + tbdata[1])
-                                 dbtblock = self.process_image_tblock(finalimagefiles, tbimgs, dbpost.id, tbindex)
+                 finalimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).order_by(DBImage.order).all()
+             
+                 #Prep Tumblr post blocks
+                 if tumblr:
+                     addtbimages = images and tumblrhasimages
+                     deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id, Tumblrblock.order > len(tumblrblocklist)).delete()
+                     if deletetbresult > 0:
+                         db.session.commit()
+
+                     dbtblocks = []
+                     tbindex = 1
+                     for tumblrblock in tumblrblocklist:
+                         tbdata = tumblrblock.split(':')
+                         match tbdata[0]:
+                            case 'photo':
+                                 if addtbimages:
+                                     tbimgs = data.getlist('imgcheckbox' + tbdata[1])
+                                     dbtblock = self.process_image_tblock(finalimagefiles, tbimgs, dbpost.id, tbindex)
+                                     dbtblocks.append(dbtblock)
+                                     tbindex += 1
+                            case 'text':
+                                 textops = {}
+                                 try:
+                                    textops = json.loads(str(data.get('tbtext' + tbdata[1])),strict=False)
+                                 except:
+                                     print(f"Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}")
+                                 dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex)
                                  dbtblocks.append(dbtblock)
                                  tbindex += 1
-                        case 'text':
-                             textops = {}
-                             try:
-                                textops = json.loads(str(data.get('tbtext' + tbdata[1])),strict=False)
-                             except:
-                                 print(f"Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}")
-                             dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex)
-                             dbtblocks.append(dbtblock)
-                             tbindex += 1
-                        case _:
-                            prefix = 'tb' + tbdata[0] + tbdata[1]
-                            url = data.get(prefix + 'url')
-                            embed = data.get(prefix + 'embed')
-                            if embed == None:
-                                embed = ''
-                            dbtblock = self.process_tblock(tbdata[0], [], url, embed, dbpost.id, tbindex)
-                            dbtblocks.append(dbtblock)
-                            tbindex += 1
+                            case _:
+                                prefix = 'tb' + tbdata[0] + tbdata[1]
+                                url = data.get(prefix + 'url')
+                                embed = data.get(prefix + 'embed')
+                                if embed == None:
+                                    embed = ''
+                                dbtblock = self.process_tblock(tbdata[0], [], url, embed, dbpost.id, tbindex)
+                                dbtblocks.append(dbtblock)
+                                tbindex += 1
              
-                 if dbtblocks:
-                    db.session.commit()
+                     if dbtblocks:
+                        db.session.commit()
 
-                 #Prep Tumblr Tags
-                 tags = data.get('tags').split(',')
-                 processedtags = self.process_tags(tags, 'tumblr')
-                 if processedtags:
-                     dbpost.tumblrtags = processedtags
-                     db.session.commit()
+                     #Prep Tumblr Tags
+                     tags = data.get('tags').split(',')
+                     processedtags = self.process_tags(tags, 'tumblr')
+                     if processedtags:
+                         dbpost.tumblrtags = processedtags
+                         db.session.commit()
 
-             else:
-                 deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id).delete()
-                 if deletetbresult > 0:
-                     db.session.commit()
+                 else:
+                     deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id).delete()
+                     if deletetbresult > 0:
+                         db.session.commit()
 
-             if bluesky:
-                 #Prep BlueSky skeets
-                 bsimgs = data.getlist('bsimgs')
-                 addbsimages = images and blueskyhasimages
-                 deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id, Blueskyskeet.order > bsskeetsnumber).delete()
-                 if deletebsresult > 0:
-                     db.session.commit()
+                 if bluesky:
+                     #Prep BlueSky skeets
+                     bsimgs = data.getlist('bsimgs')
+                     addbsimages = images and blueskyhasimages
+                     deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id, Blueskyskeet.order > bsskeetsnumber).delete()
+                     if deletebsresult > 0:
+                         db.session.commit()
 
-                 i = 1
-                 start = 0
-                 end = 4
-                 dbskeets = []
-                 while i <= bsskeetsnumber:
-                     skeetimgs = []
-                     if addbsimages:
-                         skeetimgs = bsimgs[start:end]
-                         start += 4
-                         end += 4
-                     skeet = {}
-                     try:
-                        skeet = json.loads(str(data.get('bstext' + str(i))),strict=False)
-                     except:
-                        print(f"Could not parse into json, bstext{i}: {str(data.get('bstext' + str(i)))}")
-                     dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
-                     dbskeets.append(dbskeet)
-                     i += 1
+                     i = 1
+                     start = 0
+                     end = 4
+                     dbskeets = []
+                     while i <= bsskeetsnumber:
+                         skeetimgs = []
+                         if addbsimages:
+                             skeetimgs = bsimgs[start:end]
+                             start += 4
+                             end += 4
+                         skeet = {}
+                         try:
+                            skeet = json.loads(str(data.get('bstext' + str(i))),strict=False)
+                         except:
+                            print(f"Could not parse into json, bstext{i}: {str(data.get('bstext' + str(i)))}")
+                         dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
+                         dbskeets.append(dbskeet)
+                         i += 1
 
-                 if dbskeets:
-                    db.session.commit()
+                     if dbskeets:
+                        db.session.commit()
 
-             else:
-                 deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id).delete()
-                 if deletebsresult > 0:
-                     db.session.commit()
+                 else:
+                     deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id).delete()
+                     if deletebsresult > 0:
+                         db.session.commit()
              
-             #create post job
-             self.generate_post_jobs(dbpost)
+                 #create post job
+                 self.generate_post_jobs(dbpost)
+        except:
+            self.message = 'Something went wrong with post add/edit: ' + self.postid
 
         #set success flag
         self.success = (self.message == '')
@@ -288,35 +291,42 @@ class Processpost():
                         if fileextension == "gif":
                             sfilename = sfilename.replace('.gif','.png')
                             imgpath = os.path.join(Config.UPLOAD_FOLDER, sfilename)
-
-                        im = PILImage.open(io.BytesIO(r.content))
-                        im.save(imgpath)
+                        try:
+                            im = PILImage.open(io.BytesIO(r.content))
+                            im.save(imgpath)
+                        except:
+                            self.message += 'Could not fetch image file from url\n'
+                            return []
                     else:
                         self.message += 'Could not fetch image file from url\n'
                         return []
                 else:
                     imgfile.save(imgpath)
-                #resize image if needed
-                im = PILImage.open(imgpath)
-                imgsize = os.stat(imgpath).st_size
-                scale = 1.0
-                while imgsize > self.FILE_SIZE_LIMIT:
-                    if (scale < 1.0):
-                        newheight = int(float(im.height) * scale)
-                        im = resizeimage.resize_height(im, newheight)
-                    else:
-                        im = im.resize(im.size,PILImage.NEAREST)
-                    im.save(imgpath)
+                try:
+                    #resize image if needed
                     im = PILImage.open(imgpath)
                     imgsize = os.stat(imgpath).st_size
-                    scale = scale - 0.1
+                    scale = 1.0
+                    while imgsize > self.FILE_SIZE_LIMIT:
+                        if (scale < 1.0):
+                            newheight = int(float(im.height) * scale)
+                            im = resizeimage.resize_height(im, newheight)
+                        else:
+                            im = im.resize(im.size,PILImage.NEAREST)
+                        im.save(imgpath)
+                        im = PILImage.open(imgpath)
+                        imgsize = os.stat(imgpath).st_size
+                        scale = scale - 0.1
             
-                processed = imgfile.filename not in watermarks
+                    processed = imgfile.filename not in watermarks
 
-                #add to list of Image objects
-                index = fileorder[imgfile.filename]
-                dbimg = DBImage(post_id=postid,url=sfilename, width=im.width, height=im.height,mimetype=im.get_format_mimetype(), order=index, ready=processed)
-                processedimagefiles.append(dbimg)
+                    #add to list of Image objects
+                    index = fileorder[imgfile.filename]
+                    dbimg = DBImage(post_id=postid,url=sfilename, width=im.width, height=im.height,mimetype=im.get_format_mimetype(), order=index, ready=processed)
+                    processedimagefiles.append(dbimg)
+                except:
+                    self.message += 'Problems processing image files\n'
+                    return []
 
             db.session.add_all(processedimagefiles)
             db.session.commit()
@@ -353,10 +363,10 @@ class Processpost():
                         imageids.append(img.id)
 
         plaintxt = ''
-        plaintxt = plaintxt.encode("UTF-8")
+        plaintxt = plaintxt.encode("UTF-8",errors="backslashreplace")
         links = []
         for component in skeet:
-            txtencoded = component['insert'].encode("UTF-8")
+            txtencoded = component['insert'].encode("UTF-8",errors="backslashreplace")
             if 'attributes' in component:
                 urlstart = len(plaintxt)
                 urlend = urlstart + len(component['insert']) - 1
@@ -447,7 +457,7 @@ class Processpost():
         hashtag_regex = rb"#(\w+)"
         text_bytes = text
         for m in re.finditer(hashtag_regex, text_bytes):
-            tag = m.group(1).decode("UTF-8")
+            tag = m.group(1).decode("UTF-8",errors="replace")
             tags.append(tag)
             spans.append({
                 "start": m.start(1),
@@ -469,7 +479,7 @@ class Processpost():
             spans.append({
                 "start": m.start(1),
                 "end": m.end(1),
-                "handle": m.group(1)[1:].decode("UTF-8")
+                "handle": m.group(1)[1:].decode("UTF-8",errors="replace")
             })
         return spans
 
