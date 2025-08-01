@@ -60,7 +60,19 @@ $(document).ready(function () {
 
     //form submit
     const form = document.querySelector('form');
+
+    form.addEventListener('formdata', (event) => {
+        const imgchkbox = document.getElementById('images');
+        if (imgchkbox.disabled) {
+            imgchkbox.disabled = false;
+            if (imgchkbox.checked) {
+                event.formData.append('images', 'images');
+            }
+        }
+    });
+
     form.addEventListener('submit', (event) => {
+
         //check all errors
         var error = false;
         var errormsg = '';
@@ -70,7 +82,7 @@ $(document).ready(function () {
         const day_of_month_is_empty = $('#day_of_month').val() == 0
         const hour_is_empty = $('#hour').val()  == -1
         const minute_is_empty = $('#minute').val() == -1
-        const day_of_week_is_nonempty = false
+        var day_of_week_is_nonempty = false
         const days_of_week = document.getElementsByName('day_of_week');
         Array.from(days_of_week).forEach((day_of_week, index) => {
             if (day_of_week.checked == true) {
@@ -164,6 +176,8 @@ function toggleSection() {
 
     tumblrimgcheck.checked = tumblrimgcheck && imgcheck && tumblrcheck
     blueskyimgcheck.checked = blueskyimgcheck && imgcheck && blueskycheck
+    document.getElementById('tbhasimages').disabled = !imgcheck || !tumblrcheck
+    document.getElementById('bshasimages').disabled = !imgcheck || !blueskycheck
     tumblrimgcheckdiv.hidden = !imgcheck || !tumblrcheck
     blueskyimgcheckdiv.hidden = !imgcheck || !blueskycheck
 

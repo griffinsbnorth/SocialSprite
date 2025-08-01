@@ -565,6 +565,7 @@ def watchercomic(watcher:Watcher):
         else:
             watcher.status = "Error"
             watcher.running = False
+            print(postprocessor.message)
 
         db.session.commit()
 
