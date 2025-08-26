@@ -22,11 +22,12 @@ import ua_generator
 class Processpost():
     FILE_SIZE_LIMIT = 1000000
 
-    def __init__(self, postid=-1, watcher_request=False):
+    def __init__(self, postid=-1, watcher_request=False, session=db.session):
         self.success = True
         self.message = ''
         self.postid = postid
         self.watcher_request = watcher_request
+        self.session = session
 
     def __str__(self):
         return f"{self.message}"
@@ -147,9 +148,9 @@ class Processpost():
                  dbpost.tumblrtags= []
                  dbpost.blogname = blogname
                  if self.postid == -1:
-                     db.session.add(dbpost)
+                     self.session.add(dbpost)
 
-                 db.session.commit()
+                 self.session.flush()
 
                  pastimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).all()
                  pastimagesfound = len(pastimagefiles) > 0
@@ -171,7 +172,7 @@ class Processpost():
                          self.delete_image(pastimage)
 
                  if pastimagesfound:
-                     db.session.commit()
+                     self.session.flush()
 
                  finalimagefiles = DBImage.query.filter(DBImage.post_id == dbpost.id).order_by(DBImage.order).all()
              
@@ -180,7 +181,7 @@ class Processpost():
                      addtbimages = images and tumblrhasimages
                      deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id, Tumblrblock.order > len(tumblrblocklist)).delete()
                      if deletetbresult > 0:
-                         db.session.commit()
+                         self.session.flush()
 
                      dbtblocks = []
                      tbindex = 1
@@ -213,19 +214,19 @@ class Processpost():
                                 tbindex += 1
              
                      if dbtblocks:
-                        db.session.commit()
+                        self.session.flush()
 
                      #Prep Tumblr Tags
                      tags = data.get('tags').split(',')
                      processedtags = self.process_tags(tags, 'tumblr')
                      if processedtags:
                          dbpost.tumblrtags = processedtags
-                         db.session.commit()
+                         self.session.flush()
 
                  else:
                      deletetbresult = Tumblrblock.query.filter(Tumblrblock.post_id == dbpost.id).delete()
                      if deletetbresult > 0:
-                         db.session.commit()
+                         self.session.flush()
 
                  if bluesky:
                      #Prep BlueSky skeets
@@ -233,7 +234,7 @@ class Processpost():
                      addbsimages = images and blueskyhasimages
                      deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id, Blueskyskeet.order > bsskeetsnumber).delete()
                      if deletebsresult > 0:
-                         db.session.commit()
+                         self.session.flush()
 
                      i = 1
                      start = 0
@@ -255,17 +256,21 @@ class Processpost():
                          i += 1
 
                      if dbskeets:
-                        db.session.commit()
+                        self.session.flush()
 
                  else:
                      deletebsresult = Blueskyskeet.query.filter(Blueskyskeet.post_id == dbpost.id).delete()
                      if deletebsresult > 0:
-                         db.session.commit()
+                         self.session.flush()
              
                  #create post job
                  self.generate_post_jobs(dbpost)
+
         except Exception as ex:
+            self.session.rollback()
             self.message = 'Something went wrong with post add/edit: ' + str(self.postid) + ' -- ' + str(ex)
+        else:
+            self.session.commit()
 
         #set success flag
         self.success = (self.message == '')
@@ -330,8 +335,8 @@ class Processpost():
                     self.message += 'Problems processing image files\n'
                     return []
 
-            db.session.add_all(processedimagefiles)
-            db.session.commit()
+            self.session.add_all(processedimagefiles)
+            self.session.flush()
         else:
             self.message += 'Invalid image file(s)' + '\n'
 
@@ -343,7 +348,7 @@ class Processpost():
 
     def delete_image(self, imagefile):
         filename = imagefile.url
-        db.session.delete(imagefile)
+        self.session.delete(imagefile)
 
         duplicates = DBImage.query.filter(DBImage.url == filename).all()
 
@@ -394,7 +399,7 @@ class Processpost():
         dbskeet.parenturi = ''
         dbskeet.parentcid = ''
         if addtodb:
-            db.session.add(dbskeet)
+            self.session.add(dbskeet)
         return dbskeet
 
     def process_image_tblock(self, images, tbimgs, postid, order):
@@ -417,7 +422,7 @@ class Processpost():
         dbtblock.embed = ''
         dbtblock.reblogid = ''
         if addtodb:
-            db.session.add(dbtblock)
+            self.session.add(dbtblock)
         return dbtblock
 
     def process_tblock(self, tbtype, textops, url, embed, postid, order):
@@ -435,7 +440,7 @@ class Processpost():
         dbtblock.embed = embed
         dbtblock.reblogid = ''
         if addtodb:
-            db.session.add(dbtblock)
+            self.session.add(dbtblock)
         return dbtblock
 
     def process_tags(self, tags, tagtype):
@@ -447,7 +452,7 @@ class Processpost():
                 dbtag.count = dbtag.count + 1
             else:
                 dbtag = Tag(tag = strippedtag, tagtype = tagtype, count = 1)
-                db.session.add(dbtag)
+                self.session.add(dbtag)
             processedtags.append(dbtag.tag)
 
         return processedtags
@@ -468,7 +473,7 @@ class Processpost():
             })
         processedtags = self.process_tags(tags, "bluesky")
         if processedtags:
-            db.session.commit()
+            self.session.flush()
         return spans
 
     #function from Bluesky documentation: https://docs.bsky.app/docs/advanced-guides/post-richtext#rich-text-facets
@@ -505,9 +510,9 @@ class Processpost():
         dbpostjob.repost = False
 
         if addtodb:
-            db.session.add(dbpostjob)
+            self.session.add(dbpostjob)
 
-        db.session.commit()
+        self.session.flush()
         dbpostjobs.append(dbpostjob)
         if (post.repost):
             dbrepostjobs = Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).all()
@@ -520,9 +525,9 @@ class Processpost():
             dbpostjob_noon = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = noontime, repost = True, published = False)
             dbpostjob_evening = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = eveningtime, repost = True, published = False)
 
-            db.session.add(dbpostjob_noon)
-            db.session.add(dbpostjob_evening)
-            db.session.commit()
+            self.session.add(dbpostjob_noon)
+            self.session.add(dbpostjob_evening)
+            self.session.flush()
             dbpostjobs.append(dbpostjob_noon)
             dbpostjobs.append(dbpostjob_evening)
         else:

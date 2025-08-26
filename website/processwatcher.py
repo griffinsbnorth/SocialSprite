@@ -171,8 +171,6 @@ class Processwatcher():
                     dbwatcher.running = True
                     db.session.add(dbwatcher)
 
-                db.session.commit()
-
                 month_str = '*'
                 if month != '0':
                     month_str = month
@@ -203,7 +201,10 @@ class Processwatcher():
                     job = scheduler.add_job(jobname,watcher,args=[dbwatcher.id],trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
                     print(f"Watcher scheduled for: {job.next_run_time}")
         except Exception as ex:
+            db.session.rollback()
             self.message == 'Something went wrong with watcher add/edit: ' + str(self.watcherid) + ' -- ' + str(ex)
+        else:
+            db.session.commit()
 
         #set success flag
         self.success = (self.message == '')
