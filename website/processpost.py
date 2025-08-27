@@ -28,6 +28,7 @@ class Processpost():
         self.postid = postid
         self.watcher_request = watcher_request
         self.session = session
+        self.title = ''
 
     def __str__(self):
         return f"{self.message}"
@@ -57,8 +58,10 @@ class Processpost():
 
     def processform(self, data, files, userid):
         try:
-            #print(files)
-            print(data)
+            printdata = json.dumps(data, indent=4, sort_keys=True)
+            current_app.logger.info('Post processing in progress.')
+            current_app.logger.info(f'Post processing files: {files}')
+            current_app.logger.info(f'Post processing data: {printdata}')
             self.message = ''
 
             title = data.get('title')
@@ -131,6 +134,7 @@ class Processpost():
                  self.message += 'BlueSky post has no skeets' + '\n'
             else:
                  processedimagefiles = []
+                 self.title = title
                 
                  dbpost = Post()
                  if self.postid != -1:
@@ -199,7 +203,7 @@ class Processpost():
                                  try:
                                     textops = json.loads(str(data.get('tbtext' + tbdata[1])),strict=False)
                                  except:
-                                     print(f"Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}")
+                                     current_app.logger.error(f"Process post tumblr text - Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}")
                                  dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex)
                                  dbtblocks.append(dbtblock)
                                  tbindex += 1
@@ -250,7 +254,7 @@ class Processpost():
                          try:
                             skeet = json.loads(str(data.get('bstext' + str(i))),strict=False)
                          except:
-                            print(f"Could not parse into json, bstext{i}: {str(data.get('bstext' + str(i)))}")
+                            current_app.logger.error(f"Process post skeet text - Could not parse into json, bstext{i}: {str(data.get('bstext' + str(i)))}")
                          dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
                          dbskeets.append(dbskeet)
                          i += 1
@@ -269,6 +273,7 @@ class Processpost():
         except Exception as ex:
             self.session.rollback()
             self.message = 'Something went wrong with post add/edit: ' + str(self.postid) + ' -- ' + str(ex)
+            current_app.logger.error('Post processing exception raised.', exc_info=True)
         else:
             self.session.commit()
 
@@ -276,9 +281,12 @@ class Processpost():
         self.success = (self.message == '')
         if self.success:
             if self.postid == -1:
-                self.message = 'Post successfully added'
+                self.message = 'Post successfully added: ' + self.title
             else:
-                self.message = 'Post successfully edited'
+                self.message = 'Post successfully edited: ' + self.title
+            current_app.logger.info(self.message)
+        else:
+            current_app.logger.error(f'{self.message} : post -> {self.title}')
 
     def processimages(self, imagefiles, postid, fileorder, watermarks):
         validimagefile = True
@@ -532,18 +540,13 @@ class Processpost():
             dbpostjobs.append(dbpostjob_evening)
         else:
             Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).delete()
-
-        
-        #run_date = datetime.datetime.now() + timedelta(minutes=5)
+     
         for dbjob in dbpostjobs:
             if scheduler.get_job(str(dbjob.id)):
                 scheduler.modify_job(str(dbjob.id),"default",trigger="date",run_date=dbjob.publishdate)
-                #run_date = datetime.datetime.now() + timedelta(minutes=6)
-                #scheduler.modify_job(str(dbjob.id),"default",trigger="date",run_date=run_date.astimezone(ZoneInfo("UTC")))
-                print(f"Job rescheduled for: {dbjob.publishdate}")
+                current_app.logger.info(f"Post job rescheduled for: {dbjob.publishdate}")
             else:
                 scheduler.add_job(str(dbjob.id),sendposts,trigger="date",run_date=dbjob.publishdate)
-                #scheduler.add_job(str(dbjob.id),'__main__:sendposts',trigger="date",run_date=run_date.astimezone(ZoneInfo("UTC")))
-                print(f"Job scheduled for: {dbjob.publishdate}")
+                current_app.logger.info(f"Post job scheduled for: {dbjob.publishdate}")
 
         return dbpostjobs

@@ -40,7 +40,7 @@ def sendposts():
                 postprocessor.generate_post_jobs(dbpost)
 
 
-        print(f"POST SENT AT: {run_date}")
+        app.logger.info(f"POST SENT AT: {run_date}")
 
 def sendtumblrpost(post):
     print("tumblr post sent")

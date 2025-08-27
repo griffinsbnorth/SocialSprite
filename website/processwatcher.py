@@ -1,7 +1,6 @@
-import sched
 from flask import current_app
-import re
 import os
+import json
 from atproto import models
 import datetime
 from zoneinfo import ZoneInfo
@@ -13,10 +12,11 @@ from .models import Watcher
 
 class Processwatcher():
 
-    def __init__(self, watcherid=-1):
+    def __init__(self, watcherid=-1, site=''):
         self.success = True
         self.message = ''
         self.watcherid = watcherid
+        self.site = site
 
     def __str__(self):
         return f"{self.message}"
@@ -37,15 +37,17 @@ class Processwatcher():
 
 
     def processform(self, data, userid):
-        print(data)
+        printdata = json.dumps(data, indent=4, sort_keys=True)
+        current_app.logger.info('Watcher processing in progress.')
+        current_app.logger.info(f'Watcher processing data: {printdata}')
         try:
             wtype = data.get('wtype')
             wurl = data.get('url')
+            self.site = wurl
 
             month = data.get('month')
             day_of_month = data.get('day_of_month')
             day_of_week = data.getlist('day_of_week')
-            print(day_of_week)
             hour = data.get('hour')
             minute = data.get('minute')
 
@@ -191,18 +193,19 @@ class Processwatcher():
                 if minute != '-1':
                     minute_str = minute
             
-                print(month_str + ' ' + day_of_month_str + ' ' + hour_str + ' ' + minute_str + ' ' + daylist_str)
+                current_app.logger.info('CRON job: ' + month_str + ' ' + day_of_month_str + ' ' + hour_str + ' ' + minute_str + ' ' + daylist_str)
                 jobname = "w" + str(dbwatcher.id)
                 job = scheduler.get_job(jobname)
                 if job:
                     job = scheduler.modify_job(jobname,"default",trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
-                    print(f"Watcher rescheduled for: {job.next_run_time}")
+                    current_app.logger.info(f"Watcher rescheduled for: {job.next_run_time}")
                 else:
                     job = scheduler.add_job(jobname,watcher,args=[dbwatcher.id],trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
-                    print(f"Watcher scheduled for: {job.next_run_time}")
+                    current_app.logger.info(f"Watcher scheduled for: {job.next_run_time}")
         except Exception as ex:
             db.session.rollback()
             self.message == 'Something went wrong with watcher add/edit: ' + str(self.watcherid) + ' -- ' + str(ex)
+            current_app.logger.error('Watcher processing exception raised.', exc_info=True)
         else:
             db.session.commit()
 
@@ -210,9 +213,12 @@ class Processwatcher():
         self.success = (self.message == '')
         if self.success:
             if self.watcherid == -1:
-                self.message = 'Watcher successfully added'
+                self.message = 'Watcher successfully added: ' + self.site
             else:
-                self.message = 'Watcher successfully edited'
+                self.message = 'Watcher successfully edited: ' + self.site
+            current_app.logger.info(self.message)
+        else:
+            current_app.logger.error(f'{self.message} : watcher -> {self.site}')
         return
 
     def setwatcher(self,running):
@@ -221,10 +227,10 @@ class Processwatcher():
         if job:
             if running:
                 job.resume()
-                print(f"Watcher resumed schedule.")
+                current_app.logger.info(f"Watcher resumed schedule: {self.site} {self.watcherid}")
             else:
                 job.pause()
-                print(f"Watcher paused.")
+                current_app.logger.info(f"Watcher paused: {self.site} {self.watcherid}")
         else:
-            print("Job for watcher not found")
+            current_app.logger.error(f'Job for watcher not found: {self.site} {self.watcherid}')
 

@@ -262,7 +262,7 @@ def setwatcherstatus():
     watcher = Watcher.query.get(watcherid)
     if watcher:
         if watcher.user_id == current_user.id:
-            watcherprocessor = Processwatcher(watcherid)
+            watcherprocessor = Processwatcher(watcherid,site=watcher.url)
             watcher.running = not watcher.running
             watcherprocessor.setwatcher(watcher.running)
             if watcher.running:
@@ -376,7 +376,7 @@ def patreon_post():
     
     signature = request.headers.get("X-Patreon-Signature")
     if not signature:
-        print("No signature")
+        current_app.logger.info("No patreon signature in webhook request.")
         return jsonify({"error": "No signature"}), 401
     
     # Verify signature
@@ -388,7 +388,7 @@ def patreon_post():
     ).hexdigest()
     
     if signature != expected_sig:
-        print("Invalid signature")
+        current_app.logger.info("Invalid patreon signature from webhook request.")
         return jsonify({"error": "Invalid signature"}), 401
     
     # Process the webhook
@@ -402,7 +402,7 @@ def patreon_post():
         user = User.query.filter(User.username == os.getenv("SS_USERNAME")).first()
 
         if not user:
-            print("Found no user")
+            current_app.logger.info(f'Patreon webhook - Found no user.')
             return jsonify({"error": "Found no user"}), 401
 
         # Latest post

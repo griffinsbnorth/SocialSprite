@@ -98,7 +98,6 @@ def watchertwitch(watcher:Watcher):
         tz = pytz.timezone(Config.TIMEZONE)
         publishdate = datetime.datetime.now(tz) + timedelta(minutes=5)
         cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
-        print(publishdate.tzinfo)
 
         data['title'] = stream_data[0]['title'] + ' ' + publishdate.strftime("%Y-%m-%d")
         data['scheduledate'] = publishdate.strftime("%Y-%m-%d")
@@ -565,7 +564,6 @@ def watchercomic(watcher:Watcher):
         else:
             watcher.status = "Error"
             watcher.running = False
-            print(postprocessor.message)
 
         db.session.commit()
 
