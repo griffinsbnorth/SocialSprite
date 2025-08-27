@@ -315,6 +315,15 @@ def delete_post():
 
     return jsonify({})
 
+@views.route('/runpost', methods=['POST'])
+def runpost():  
+    data = json.loads(request.data)
+    postid = data['postid']
+    from .sendpost import sendpost
+    sendpost(postid)
+
+    return jsonify({})
+
 @views.route('/editrepost', methods=['POST'])
 def edit_repost():  
     post = json.loads(request.data)

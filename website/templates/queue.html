@@ -19,6 +19,9 @@
             <b style="color:firebrick;">UNPUBLISHED</b>
             <a href="{{ url_for('views.editpost', postid=postjob.post_id) }}">EDIT POST</a>
             {% endif %}
+            <button type="button" class="close" onClick="deletepostjob({{ postjob.id }}, {{ pagination.page }})">
+                <span aria-hidden="true">&times;</span>
+            </button>
         </div>
     </div>
     {% else %}

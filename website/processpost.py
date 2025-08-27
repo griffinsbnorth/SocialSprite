@@ -9,7 +9,7 @@ import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
-from website.sendpost import sendposts
+from website.sendpost import sendpostjob
 from . import db, scheduler
 import json
 from PIL import Image as PILImage
@@ -546,7 +546,7 @@ class Processpost():
                 scheduler.modify_job(str(dbjob.id),"default",trigger="date",run_date=dbjob.publishdate)
                 current_app.logger.info(f"Post job rescheduled for: {dbjob.publishdate}")
             else:
-                scheduler.add_job(str(dbjob.id),sendposts,trigger="date",run_date=dbjob.publishdate)
+                scheduler.add_job(str(dbjob.id),sendpostjob,args=[dbjob.id],trigger="date",run_date=dbjob.publishdate)
                 current_app.logger.info(f"Post job scheduled for: {dbjob.publishdate}")
 
         return dbpostjobs

@@ -4,14 +4,13 @@ from .models import Image as DBImage
 from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob
 from . import db, scheduler
 
-def sendposts():
+def sendpostjob(postjobid):
     from .processpost import Processpost
     app = scheduler.app
     with app.app_context():
         run_date = datetime.datetime.now()
-        check_datetime = datetime.datetime.now() + timedelta(minutes=5)
-        dbpostjobs = Postjob.query.filter(Postjob.publishdate <= check_datetime, Postjob.published == False).all()
-        for dbpostjob in dbpostjobs:
+        dbpostjob = Postjob.query.get(postjobid)
+        if dbpostjob:
             dbpost = Post.query.get(dbpostjob.post_id)
             print(dbpost.title)
             #check for tumblr
@@ -25,7 +24,7 @@ def sendposts():
                 sendblueskypost(dbpost)
 
             dbpostjob.published = True
-            db.session.commit()
+            db.session.flush()
             if dbpost.cycle and not dbpostjob.repost:
                 #update cycledate and scheduledate
                 datediff = dbpost.cycledate - dbpost.publishdate
@@ -41,6 +40,23 @@ def sendposts():
 
 
         app.logger.info(f"POST SENT AT: {run_date}")
+
+def sendpost(postid):
+    app = scheduler.app
+    dbpost = Post.query.get(postid)
+    run_date = datetime.datetime.now()
+    print(dbpost.title)
+    #check for tumblr
+    if dbpost.fortumblr:
+        #send tumblr post
+        sendtumblrpost(dbpost)
+
+    #check for bluesky
+    if dbpost.forbluesky:
+        #send tumblr post
+        sendblueskypost(dbpost)
+
+    app.logger.info(f"POST SENT AT: {run_date}")
 
 def sendtumblrpost(post):
     print("tumblr post sent")

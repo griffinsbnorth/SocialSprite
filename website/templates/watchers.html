@@ -21,7 +21,7 @@
                 {% endif %}
                 <span class="slider round"></span>
             </label>
-            <button id="submitBtn" type="submit" class="btn btn-primary" onClick="runwatcher({{ watcher.id }}, {{ pagination.page }})">RUN ONCE</button>
+            <button type="button" class="btn btn-primary" onClick="runwatcher({{ watcher.id }}, {{ pagination.page }})">RUN ONCE</button>
         </div>
         <div class="rightside">
             <h6>STATUS: {{ watcher.status }}</h6>

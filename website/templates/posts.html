@@ -37,6 +37,7 @@
             {% if post.cycle %}
             {{ post.cycledate }}
             {% endif %}
+            <button type="button" class="btn btn-primary" onClick="runpost({{ post.id }}, {{ pagination.page }})">POST NOW</button>
         </div>
         <div class="rightside">
             <b>{{ post.publishdate }}</b>
@@ -90,6 +91,14 @@
                 window.location.href = "/posts?page=" + currentpage;
             });
         }
+    }
+    function runpost(postid, currentpage) {
+        fetch("/runpost", {
+            method: "POST",
+            body: JSON.stringify({ postid: postid }),
+        }).then((_res) => {
+            window.location.href = "/posts?page=" + currentpage;
+        });
     }
     function editrepost(checked, postid, currentpage) {
         fetch("/editrepost", {
