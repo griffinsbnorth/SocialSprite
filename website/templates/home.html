@@ -1,5 +1,51 @@
 {% extends "base.html" %}
 {% block title %}Home{% endblock %}
 {% block content %}
+<script src="{{ url_for('static', filename='js/calendarorganizer.min.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/calendarorganizer.min.css') }}">
+<script type="text/javascript">
+    var events = {{ events|tojson}}
+</script>
+<script src="{{ url_for('static', filename='js/sscalendar.js') }}"></script>
 <h1>HOME</h1>
+
+
+<div class="container text-center">
+    <div class="row">
+        <div class="col">
+            <h3>LATEST PUBLISHED:</h3>
+            <div id="latest">
+                {% for job in latestjobs %}
+                <div class="latestpost">
+                    {{ job.title }}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <h3>CALENDAR VIEW:</h3>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div id="calendarContainer"></div>
+        </div>
+        <div class="col">
+            <div id="organizerContainer"></div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <div id="monitordiv">
+                <a href="/threads">Threads</a>
+                <a href="/monitoring">Monitoring</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
 {% endblock %}

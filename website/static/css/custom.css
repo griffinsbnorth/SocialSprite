@@ -184,6 +184,26 @@ input:checked + .slider:before {
     transform: translateX(26px);
 }
 
+#latest {
+    padding: 15px;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.1);
+    margin: 5px;
+    border-radius: 25px;
+}
+
+#calendarContainer {
+    margin: 5px;
+}
+
+#organizerContainer {
+    margin: 5px;
+}
+
+#monitordiv {
+    padding: 15px;
+}
+
 /* Rounded sliders */
 .slider.round {
     border-radius: 34px;

@@ -21,7 +21,12 @@ views = Blueprint('views', __name__)
 @views.route('/')
 @login_required
 def home():
-    return render_template("home.html", user=current_user)
+    latestjobs = Postjob.query.filter(Postjob.user_id == current_user.id,Postjob.published == True).order_by(Postjob.publishdate).limit(10).all()
+
+    currentdate = datetime.datetime.now()
+    events = getcalendarmonth(currentdate.year,currentdate.month)
+
+    return render_template("home.html", user=current_user, events=events, latestjobs=latestjobs)
 
 @views.route('/addpost', methods=['GET', 'POST'])
 @login_required
@@ -373,6 +378,14 @@ def loadfile():
 
     return send_file(filepath)
 
+@views.route('/loadmonth', methods=['GET'])
+def loadmonth():
+    year = int(request.args.get('year'))
+    month = int(request.args.get('month'))
+    events = getcalendarmonth(year,month)
+
+    return jsonify(events)
+
 @views.route("/patreonpost", methods=["POST"])
 def patreon_post():
     """
@@ -530,4 +543,32 @@ def formatscheduledata(scheduledata):
         minute_str = scheduledata['minute']
             
     return minute_str + ' ' + hour_str + ' ' + day_of_month_str + ' ' + month_str + ' ' + daylist_str
+
+def getcalendarmonth(year, month):
+    startdate = datetime.datetime(year,month,1,tzinfo=ZoneInfo(Config.TIMEZONE))
+    enddate = datetime.datetime(year,month + 1,1,tzinfo=ZoneInfo(Config.TIMEZONE))
+    startdate = startdate.replace(tzinfo=ZoneInfo(Config.TIMEZONE)).astimezone(ZoneInfo("UTC"))
+    enddate = enddate.replace(tzinfo=ZoneInfo(Config.TIMEZONE)).astimezone(ZoneInfo("UTC"))
+    postjobs = Postjob.query.filter(Postjob.user_id == current_user.id,Postjob.publishdate >= startdate,Postjob.publishdate < enddate).order_by(Postjob.publishdate).all()
+    
+    events = {}
+    for postjob in postjobs:
+        start = postjob.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
+        link =  f'/editpost/{postjob.post_id}'
+        event = { 'startTime': start.strftime("%H:%M"), 'endTime': start.strftime("%H:%M"), 'text': postjob.title, 'link': link }
+        year = int(start.strftime("%Y"))
+        month = int(start.strftime("%m"))
+        day = int(start.strftime("%d"))
+        if year in events:
+            if month in events[year]: 
+                if day in events[year][month]:
+                    events[year][month][day].append(event)
+                else:
+                    events[year][month][day] = [ event ]
+            else:
+                events[year][month] = { day: [ event ]}
+        else:
+            events[year] = { month: { day: [ event ]}}
+
+    return events
 
