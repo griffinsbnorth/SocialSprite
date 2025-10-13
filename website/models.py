@@ -32,6 +32,7 @@ class Tumblrblock(db.Model):
     url = db.Column(db.String(256), default="")
     embed = db.Column(db.String(512), default="")
     quillops = db.Column(db.JSON)
+    npf = db.Column(db.JSON)
     reblogid = db.Column(db.String(512), default="")
 
 class Blueskyskeet(db.Model):

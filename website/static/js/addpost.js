@@ -295,10 +295,13 @@ $(document).ready(function () {
     form.addEventListener('formdata', (event) => {
         // Append Quill content before submitting
         for (const key in richTxtEditors) {
-            event.formData.append('tbtext' + key, JSON.stringify(richTxtEditors[key].getContents().ops));
+            delta = richTxtEditors[key].getContents();
+            event.formData.append('tbtext' + key, JSON.stringify(delta.ops));
+            event.formData.append('npf' + key, JSON.stringify(deltaToNpf(delta)));
         }
         for (const key in bsrichTxtEditors) {
-            event.formData.append('bstext' + key, JSON.stringify(bsrichTxtEditors[key].getContents().ops));
+            delta = bsrichTxtEditors[key].getContents();
+            event.formData.append('bstext' + key, JSON.stringify(delta.ops));
         }
         var pondfiles = pond.getFiles();
         var pondfilelist = {};
@@ -573,7 +576,7 @@ function addTblock(blocktype) {
         case "text":
             $('#tblock' + tBlockIndex).append('<div id="tbtext' + tBlockIndex + '" name="tbtext"></div>');
             const toolbarOptions = [
-                ['bold', 'italic', 'underline', 'strike', 'link'],        // toggled buttons
+                ['bold', 'italic', 'strike', 'link'],        // toggled buttons
 
                 [{ 'color': [] }],
                 [{ 'list': 'ordered' }, { 'list': 'bullet' }],

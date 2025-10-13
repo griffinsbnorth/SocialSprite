@@ -200,11 +200,14 @@ class Processpost():
                                      tbindex += 1
                             case 'text':
                                  textops = {}
+                                 npf = {}
                                  try:
                                     textops = json.loads(str(data.get('tbtext' + tbdata[1])),strict=False)
+                                    npf = json.loads(str(data.get('npf' + tbdata[1])),strict=False)
+                                    print(npf)
                                  except:
                                      current_app.logger.error(f"Process post tumblr text - Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}")
-                                 dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex)
+                                 dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex, npf)
                                  dbtblocks.append(dbtblock)
                                  tbindex += 1
                             case _:
@@ -384,7 +387,7 @@ class Processpost():
             txtencoded = component['insert'].encode("UTF-8",errors="backslashreplace")
             if 'attributes' in component:
                 urlstart = len(plaintxt)
-                urlend = urlstart + len(component['insert']) - 1
+                urlend = urlstart + len(component['insert'])
                 link = component['attributes']['link']
                 links.append({
                     "start": urlstart,
@@ -433,7 +436,7 @@ class Processpost():
             self.session.add(dbtblock)
         return dbtblock
 
-    def process_tblock(self, tbtype, textops, url, embed, postid, order):
+    def process_tblock(self, tbtype, textops, url, embed, postid, order, npf= {}):
         dbtblock = Tumblrblock.query.filter(Tumblrblock.post_id == postid, Tumblrblock.order == order ).first()
         addtodb = not dbtblock
         if addtodb:
@@ -445,6 +448,7 @@ class Processpost():
         dbtblock.blocktype = tbtype
         dbtblock.quillops = textops
         dbtblock.url = url
+        dbtblock.npf = npf
         dbtblock.embed = embed
         dbtblock.reblogid = ''
         if addtodb:
