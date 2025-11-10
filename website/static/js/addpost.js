@@ -159,7 +159,7 @@ $(document).ready(function () {
         onremovefile: (error, file) => {
             if (!error) {
                 fname = file.filename;
-                removeElement('wm' + fname);
+                //removeElement('wm' + fname);
                 delete imgthumbnails[fname];
                 for (let i = 0; i < bsPhotoSelectors.length; i++) {
                     if ($(bsPhotoSelectors[i]).val() == fname) {
@@ -524,6 +524,7 @@ function countTbChar(index, counter) {
 };
 
 function removeElement(element) {
+    console.log(element);
     var removedElement = document.getElementById(element);
     removedElement.remove();
 };

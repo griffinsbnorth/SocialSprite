@@ -473,7 +473,7 @@ class Processpost():
         spans = []
         tags = []
 
-        hashtag_regex = rb"#(\w+)"
+        hashtag_regex = rb"(#(\w+))"
         text_bytes = text
         for m in re.finditer(hashtag_regex, text_bytes):
             tag = m.group(1).decode("UTF-8",errors="replace")

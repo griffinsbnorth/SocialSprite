@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import os
 from config import Config
+from atproto import Client, client_utils, models, IdResolver
 
 def sendpostjob(postjobid):
     from .processpost import Processpost
@@ -31,24 +32,25 @@ def sendpostjob(postjobid):
 
             #check for bluesky
             if dbpost.forbluesky:
-                #send tumblr post
-                sendblueskypost(dbpost)
+                poster = BlueSkyClient(dbpost)
+                poster.sendblueskypost()
+                if poster.success:
+                    app.logger.info(f"{poster.message}: {run_date}")
+                else:
+                    app.logger.error(poster.message)
 
             dbpostjob.published = True
             db.session.flush()
             if dbpost.cycle and not dbpostjob.repost:
                 #update cycledate and scheduledate
                 datediff = dbpost.cycledate - dbpost.publishdate
-                print(datediff)
                 dbpost.publishdate = dbpost.cycledate
-                print(dbpost.publishdate)
                 dbpost.cycledate = dbpost.cycledate + datediff
-                print(dbpost.cycledate)
-                db.session.commit()
                 #generate postjobs
                 postprocessor = Processpost(dbpost.id)
                 postprocessor.generate_post_jobs(dbpost)
 
+            db.session.commit()
 
         app.logger.info(f"POST SENT AT: {run_date}")
 
@@ -67,14 +69,16 @@ def sendpost(postid):
 
     #check for bluesky
     if dbpost.forbluesky:
-        #send tumblr post
-        sendblueskypost(dbpost)
+        poster = BlueSkyClient(dbpost)
+        poster.sendblueskypost()
+        if poster.success:
+            app.logger.info(f"{poster.message}: {run_date}")
+        else:
+            app.logger.error(poster.message)
+
+    db.session.commit()
 
     app.logger.info(f"POST SENT AT: {run_date}")
-
-
-def sendblueskypost(post):
-    print("bluesky post sent")
 
 class TumblrPostClient():
     def __init__(self, post, reblog=False, session=db.session):
@@ -160,6 +164,12 @@ class TumblrPostClient():
                 media_sources=self.media_sources,
                 tags=self.post.tumblrtags
             )
+            if "errors" in response:
+                self.success = False
+                self.message = json.dumps(response)
+            else:
+                self.success = True
+                self.message = "Tumblr post sent"
         else:
             response = self.client.create_post(
                 self.post.blogname,
@@ -251,3 +261,90 @@ class TumblrPostClient():
                 provider = 'vimeo'
 
         return provider
+
+class BlueSkyClient():
+    def __init__(self, post, session=db.session):
+        self.success = True
+        self.message = ''
+        self.post = post
+        self.session = session
+        self.client = Client()
+        self.client.login(os.getenv("BLUESKY_USERNAME"), os.getenv("BLUESKY_PASSWORD"))
+        self.dbimages = DBImage.query.filter(DBImage.post_id == self.post.id).order_by(DBImage.order).all()
+
+    def __str__(self):
+        return f"{self.message}"
+
+    def sendblueskypost(self):
+        skeets = Blueskyskeet.query.filter(Blueskyskeet.post_id == self.post.id).order_by(Blueskyskeet.order).all()
+        root = None
+        parent = None
+        for skeet in skeets:
+            facets = self.processfacets(skeet)
+            
+            if skeet.imageids:
+                try:
+                    aspects, images = self.processimages(skeet.imageids)
+                    if root == None:
+                        root = models.create_strong_ref(self.client.send_images(text=skeet.text.decode('UTF-8'),facets=facets,images=images,image_aspect_ratios=aspects))
+                        parent = root
+                    else:
+                        parent_ref = parent
+                        parent = models.create_strong_ref(self.client.send_images(text=skeet.text.decode('UTF-8'),facets=facets,images=images,image_aspect_ratios=aspects,reply_to=models.AppBskyFeedPost.ReplyRef(parent=parent_ref, root=root)))
+                except Exception as ex:
+                    self.success = False
+                    self.message = str(ex)
+            else:
+                try:
+                    if root == None:
+                        root = models.create_strong_ref(self.client.send_post(text=skeet.text.decode('UTF-8'),facets=facets))
+                        parent = root
+                    else:
+                        parent_ref = parent
+                        parent = models.create_strong_ref(self.client.send_post(text=skeet.text.decode('UTF-8'),facets=facets,reply_to=models.AppBskyFeedPost.ReplyRef(parent=parent_ref, root=root)))
+                except Exception as ex:
+                    self.success = False
+                    self.message = str(ex)
+                   
+        if self.success:
+            self.message ="BlueSky post sent"
+
+    def processfacets(self, skeet):
+        facets = []
+        for url in skeet.urls:
+            facet = models.AppBskyRichtextFacet.Main(
+                features=[models.AppBskyRichtextFacet.Link(uri=url["link"])],
+                index=models.AppBskyRichtextFacet.ByteSlice(byte_start=url["start"], byte_end=url["end"]),
+            )
+            facets.append(facet)
+
+        for tag in skeet.tags:
+            facet = models.AppBskyRichtextFacet.Main(
+                features=[models.AppBskyRichtextFacet.Tag(tag=tag["tag"])],
+                index=models.AppBskyRichtextFacet.ByteSlice(byte_start=tag["start"], byte_end=tag["end"]),
+            )
+            facets.append(facet)
+
+        for mention in skeet.mentions:
+            resolver = IdResolver()
+            did = resolver.handle.resolve(mention["handle"])
+            if did:
+                facet = models.AppBskyRichtextFacet.Main(
+                    features=[models.AppBskyRichtextFacet.Mention(did=did)],
+                    index=models.AppBskyRichtextFacet.ByteSlice(byte_start=mention["start"], byte_end=mention["end"]),
+                )
+                facets.append(facet)
+
+        return facets
+
+    def processimages(self,imageids):
+        aspects = []
+        images = []
+        for dbimg in self.dbimages:
+            if dbimg.id in imageids:
+                path = Config.UPLOAD_FOLDER + '/' + dbimg.url
+                aspects.append(models.AppBskyEmbedDefs.AspectRatio(height=dbimg.height, width=dbimg.width))
+                with open(path, 'rb') as f:
+                    images.append(f.read())
+        
+        return (aspects, images)
