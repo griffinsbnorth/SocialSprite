@@ -19,6 +19,15 @@ var tbimagemap = {};
 var pond;
 
 $(document).ready(function () {
+    let loadedFilesCount = 0;
+    let expectedFilesCount = postdata['files'] ? postdata['files'].length : 0;
+    let allFilesLoadedResolver = null;
+
+    const allFilesLoaded = new Promise(resolve => {
+        allFilesLoadedResolver = expectedFilesCount === 0 ? null : resolve;
+        if (expectedFilesCount === 0) resolve();
+    });
+
     bsimagemap = postdata['bsimgmap'];
     tbimagemap = postdata['tbimgmap'];
     //title
@@ -147,7 +156,6 @@ $(document).ready(function () {
         onaddfile: (error, file) => {
             if (!error) {
                 fname = file.filename;
-                //$('#watermarks').append('<div id="wm' + fname + '"><label for="watermark' + fname + '"> Add watermark for ' + fname + '? </label><input type="checkbox" id="watermark' + fname + '" name="watermark" value="' + fname + '" ><div/>');
                 for (let i = 0; i < bsPhotoSelectors.length; i++) {
                     $(bsPhotoSelectors[i]).append($('<option>', {
                         value: fname,
@@ -194,6 +202,7 @@ $(document).ready(function () {
             var img = new Image();
 
             img.onload = function () {
+                loadedFilesCount++;
                 var scale = 100 / img.height;
                 var newwidth = img.width * scale;
                 canvas.width = newwidth;
@@ -206,11 +215,9 @@ $(document).ready(function () {
                         getImgOptionCheckboxes(tBlocks[i], block);
                     }
                 }
-                for (const bkey in bsimagemap) {
-                    if (bsPhotoSelectors.length >= parseInt(bkey) && bsimagemap[bkey] in imgthumbnails) {
-                        $(bsPhotoSelectors[bkey]).val(bsimagemap[bkey]).change();
-                        delete bsimagemap[bkey];
-                    }
+                if (loadedFilesCount === expectedFilesCount && allFilesLoadedResolver) {
+                    allFilesLoadedResolver();
+                    allFilesLoadedResolver = null;
                 }
             }
 
@@ -218,77 +225,89 @@ $(document).ready(function () {
         }
     });
 
-    //tumblr section
-    $('#addTbPhotoBtn').click(function () { addTblock('photo') });
-    $('#addTbTextBtn').click(function () { addTblock('text') });
-    $('#addTbLinkBtn').click(function () { addTblock('link') });
-    $('#addTbAudioBtn').click(function () { addTblock('audio') });
-    $('#addTbVideoBtn').click(function () { addTblock('video') });
-    $('#removeTblockBtn').click(function () { removeTblock() });
+    Promise.race([
+        allFilesLoaded,
+        new Promise(resolve => setTimeout(resolve, 5000))
+    ]).then(() => {
+        //tumblr section
+        $('#addTbPhotoBtn').click(function () { addTblock('photo') });
+        $('#addTbTextBtn').click(function () { addTblock('text') });
+        $('#addTbLinkBtn').click(function () { addTblock('link') });
+        $('#addTbAudioBtn').click(function () { addTblock('audio') });
+        $('#addTbVideoBtn').click(function () { addTblock('video') });
+        $('#removeTblockBtn').click(function () { removeTblock() });
 
-    blocks = postdata['blocks'];
-    for (let j = 0; j < blocks.length; j++) {
-        key = j + 1;
-        blocktype = blocks[j]['blocktype'];
-        addTblock(blocktype);
-        switch (blocktype) {
-            case 'text':
-                richTxtEditors[key].setContents(blocks[j]['text']);
-                break;
-            case 'link':
-                $('#tblink' + key + 'url').val(blocks[j]['url']);
-                break;
-            default:
-                $('#tb' + blocktype + key + 'url').val(blocks[j]['url']);
-                $('#tb' + blocktype + key + 'embed').val(blocks[j]['embed']);
+        blocks = postdata['blocks'];
+        for (let j = 0; j < blocks.length; j++) {
+            key = j + 1;
+            blocktype = blocks[j]['blocktype'];
+            addTblock(blocktype);
+            switch (blocktype) {
+                case 'text':
+                    richTxtEditors[key].setContents(blocks[j]['text']);
+                    break;
+                case 'link':
+                    $('#tblink' + key + 'url').val(blocks[j]['url']);
+                    break;
+                default:
+                    $('#tb' + blocktype + key + 'url').val(blocks[j]['url']);
+                    $('#tb' + blocktype + key + 'embed').val(blocks[j]['embed']);
+            }
         }
-    }
-    $('#blogname').val(postdata['blogname']);
-    $('#ttags').val(postdata['tags']);
+        $('#blogname').val(postdata['blogname']);
+        $('#ttags').val(postdata['tags']);
 
-    topTagsButton('#topttags', postdata['toptbtags'], 'tumblr');
-    topTagsButton('#topbstags', postdata['topbstags'], 'bluesky');
+        topTagsButton('#topttags', postdata['toptbtags'], 'tumblr');
+        topTagsButton('#topbstags', postdata['topbstags'], 'bluesky');
 
-    //bluesky section
-    $('#addBStxtBtn').click(function () { addBStext() });
-    $('#removeBStxtBtn').click(function () { removeBStext() });
-    $('#bsp1i1').on('change', function () { addThumbnail(this.value, this) });
-    $('#bsp1i2').on('change', function () { addThumbnail(this.value, this) });
-    $('#bsp1i3').on('change', function () { addThumbnail(this.value, this) });
-    $('#bsp1i4').on('change', function () { addThumbnail(this.value, this) });
-    bsPhotoSelectors[0] = '#bsp1i1';
-    bsPhotoSelectors[1] = '#bsp1i2';
-    bsPhotoSelectors[2] = '#bsp1i3';
-    bsPhotoSelectors[3] = '#bsp1i4';
+        //bluesky section
+        $('#addBStxtBtn').click(function () { addBStext() });
+        $('#removeBStxtBtn').click(function () { removeBStext() });
+        $('#bsp1i1').on('change', function () { addThumbnail(this.value, this) });
+        $('#bsp1i2').on('change', function () { addThumbnail(this.value, this) });
+        $('#bsp1i3').on('change', function () { addThumbnail(this.value, this) });
+        $('#bsp1i4').on('change', function () { addThumbnail(this.value, this) });
 
+        for (i = 1; i < 5; i++) {
+            addImgOptions(document.getElementById('bsp1i' + i));
+            bsPhotoSelectors.push('#bsp1i' + i);
+        }
 
-    bstoolbarOptions = [
-        ['link'],        // toggled buttons
-        ['clean']        // remove formatting button
-    ];
-    bsoptions = {
-        modules: {
-            toolbar: bstoolbarOptions,
-        },
-        theme: 'snow'
-    };
-    bsrichTxtEditors[1] = new Quill('#bstext1', bsoptions);
-    bsrichTxtEditors[1].on('text-change', (delta, oldDelta, source) => {
-        countChar(1, '#charNum1');
+        bstoolbarOptions = [
+            ['link'],        // toggled buttons
+            ['clean']        // remove formatting button
+        ];
+        bsoptions = {
+            modules: {
+                toolbar: bstoolbarOptions,
+            },
+            theme: 'snow'
+        };
+        bsrichTxtEditors[1] = new Quill('#bstext1', bsoptions);
+        bsrichTxtEditors[1].on('text-change', (delta, oldDelta, source) => {
+            countChar(1, '#charNum1');
+        });
+        bsTextError[1] = false;
+        skeets = postdata['skeets'];
+        for (let i = 0; i < skeets.length; i++) {
+            key = i + 1;
+            if (!(key in bsrichTxtEditors)) {
+                addBStext();
+            }
+            bsrichTxtEditors[key].setContents(skeets[i]);
+        }
+
+        //set photo selector values
+        for (const bkey in bsimagemap) {
+            if (bsPhotoSelectors.length >= parseInt(bkey) && bsimagemap[bkey] in imgthumbnails) {
+                $(bsPhotoSelectors[bkey]).val(bsimagemap[bkey]).change();
+            }
+        }
+
+        toggleSection('images', 'imgsection');
+        toggleSection('tumblr', 'tform');
+        toggleSection('bluesky', 'bsformall');
     });
-    bsTextError[1] = false;
-    skeets = postdata['skeets'];
-    for (let i = 0; i < skeets.length; i++) {
-        key = i + 1;
-        if (!(key in bsrichTxtEditors)) {
-            addBStext();
-        }
-        bsrichTxtEditors[key].setContents(skeets[i]);
-    }
-
-    toggleSection('images', 'imgsection');
-    toggleSection('tumblr', 'tform');
-    toggleSection('bluesky', 'bsformall');
 
     //form submit
     const form = document.querySelector('form');
