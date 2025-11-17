@@ -2,6 +2,11 @@
 {% block title %}Watchers{% endblock %}
 {% block content %}
 <h1>WATCHERS</h1>
+<form method="GET" action="{{ url_for('views.watchers') }}" class="d-flex mb-4">
+    <input type="text" name="q" class="form-control me-2" placeholder="Search by url"
+           value="{{ search_query }}">
+    <button class="btn btn-outline-primary" type="submit">Search</button>
+</form>
 <h2>page {{ pagination.page }}</h2>
 <div class="watcherspage" id="watchers">
     {% for watcher in pagination.items %}

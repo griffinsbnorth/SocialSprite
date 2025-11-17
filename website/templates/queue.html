@@ -2,6 +2,11 @@
 {% block title %}Queue{% endblock %}
 {% block content %}
 <h1>QUEUE</h1>
+<form method="GET" action="{{ url_for('views.queuepage') }}" class="d-flex mb-4">
+    <input type="text" name="q" class="form-control me-2" placeholder="Search by title"
+           value="{{ search_query }}">
+    <button class="btn btn-outline-primary" type="submit">Search</button>
+</form>
 <h2>page {{ pagination.page }}</h2>
 <div class="postjobspage" id="postjobs">
     {% for postjob in pagination.items %}

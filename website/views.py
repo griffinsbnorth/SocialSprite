@@ -110,11 +110,18 @@ def editpost(postid):
 
     return render_template("addpost.html", user=current_user, postdata=postdata, postop='EDIT')
 
-@views.route('/posts')
+@views.route('/posts', methods=['GET', 'POST'])
 @login_required
 def posts():
+    search_query = request.args.get('q', '')
     currentpage = request.args.get('page', 1, type=int)
-    pagination = Post.query.filter(Post.user_id == current_user.id).order_by(Post.publishdate).paginate(page=currentpage, per_page=15)
+    pagination = []
+    numpages = 15
+    if search_query:
+        pagination = Post.query.filter(Post.title.ilike(f'%{search_query}%')).paginate(page=currentpage, per_page=numpages)
+    else:
+        pagination = Post.query.filter(Post.user_id == current_user.id).order_by(Post.publishdate).paginate(page=currentpage, per_page=numpages)
+
     for item in pagination.items:
         item.publishdate = item.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
         item.cycledate = item.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
@@ -219,8 +226,15 @@ def editwatcher(watcherid):
 @views.route('/watchers', methods=['GET', 'POST'])
 @login_required
 def watchers():
+    search_query = request.args.get('q', '')
     currentpage = request.args.get('page', 1, type=int)
-    pagination = Watcher.query.filter(Watcher.user_id == current_user.id).order_by(Watcher.lastran).paginate(page=currentpage, per_page=15)
+    pagination = []
+    numpages = 15
+    if search_query:
+        pagination = Watcher.query.filter(Watcher.url.ilike(f'%{search_query}%')).paginate(page=currentpage, per_page=numpages)
+    else:
+        pagination = Watcher.query.filter(Watcher.user_id == current_user.id).order_by(Watcher.lastran).paginate(page=currentpage, per_page=numpages)
+
     for item in pagination.items:
         item.lastran = item.lastran.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
         item.scheduledata = formatscheduledata(item.scheduledata)
@@ -230,8 +244,15 @@ def watchers():
 @views.route('/queue', methods=['GET', 'POST'])
 @login_required
 def queuepage():
+    search_query = request.args.get('q', '')
     currentpage = request.args.get('page', 1, type=int)
-    pagination = Postjob.query.filter(Postjob.user_id == current_user.id).order_by(Postjob.publishdate).paginate(page=currentpage, per_page=15)
+    pagination = []
+    numpages = 15
+    if search_query:
+        pagination = Postjob.query.filter(Postjob.title.ilike(f'%{search_query}%')).paginate(page=currentpage, per_page=numpages)
+    else:
+        pagination = Postjob.query.filter(Postjob.user_id == current_user.id).order_by(Postjob.publishdate).paginate(page=currentpage, per_page=numpages)
+
     for item in pagination.items:
         item.publishdate = item.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
 

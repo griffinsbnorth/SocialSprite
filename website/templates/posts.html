@@ -2,6 +2,11 @@
 {% block title %}Posts{% endblock %}
 {% block content %}
 <h1>POSTS</h1>
+<form method="GET" action="{{ url_for('views.posts') }}" class="d-flex mb-4">
+    <input type="text" name="q" class="form-control me-2" placeholder="Search by title"
+           value="{{ search_query }}">
+    <button class="btn btn-outline-primary" type="submit">Search</button>
+</form>
 <h2>page {{ pagination.page }}</h2>
 <div class="postspage" id="posts">
     {% for post in pagination.items %}
