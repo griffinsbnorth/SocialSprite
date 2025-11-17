@@ -32,7 +32,7 @@ def setup_logging(app):
     # Email handler: https://flask.palletsprojects.com/en/stable/logging/#email-errors-to-admins
     mail_handler = SMTPHandler(
     mailhost='127.0.0.1',
-    fromaddr='server-error@example.com',
+    fromaddr=os.getenv("SS_SERVER_EMAIL"),
     toaddrs=[os.getenv("SS_EMAIL")],
     subject='Social Sprite Error'
 )

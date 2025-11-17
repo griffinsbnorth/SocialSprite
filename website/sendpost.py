@@ -20,7 +20,6 @@ def sendpostjob(postjobid):
         dbpostjob = Postjob.query.get(postjobid)
         if dbpostjob:
             dbpost = Post.query.get(dbpostjob.post_id)
-            print(dbpost.title)
             #check for tumblr
             if dbpost.fortumblr:
                 poster = TumblrPostClient(dbpost,reblog=dbpostjob.repost)
@@ -32,7 +31,7 @@ def sendpostjob(postjobid):
 
             #check for bluesky
             if dbpost.forbluesky:
-                poster = BlueSkyClient(dbpost)
+                poster = BlueSkyClient(dbpost,repost=dbpostjob.repost)
                 poster.sendblueskypost()
                 if poster.success:
                     app.logger.info(f"{poster.message}: {run_date}")
@@ -43,12 +42,14 @@ def sendpostjob(postjobid):
             db.session.flush()
             if dbpost.cycle and not dbpostjob.repost:
                 #update cycledate and scheduledate
-                datediff = dbpost.cycledate - dbpost.publishdate
+                datediff = (dbpost.cycledate - dbpost.publishdate) * 2
                 dbpost.publishdate = dbpost.cycledate
                 dbpost.cycledate = dbpost.cycledate + datediff
                 #generate postjobs
                 postprocessor = Processpost(dbpost.id)
                 postprocessor.generate_post_jobs(dbpost)
+                if datediff.days >= 180:
+                    dbpost.cycle = False
 
             db.session.commit()
 
@@ -102,6 +103,22 @@ class TumblrPostClient():
         return f"{self.message}"
 
     def sendtumblrpost(self):
+        if self.reblog and self.post.reblogid:
+            response = self.client.reblog_post(
+                self.post.blogname,  # reblogging TO
+                self.post.blogname,  # rebloggin FROM
+                self.post.reblogid,
+                self.post.uuid,
+                self.post.reblogkey
+            )
+            if "errors" in response:
+                self.message = json.dumps(response)
+                self.message += " Reblog failed. Defaulting to regular post. "
+            else:
+                self.success = True
+                self.message = "Tumblr post reblogged"
+                return
+
         #get tumblr blocks
         blocks = Tumblrblock.query.filter(Tumblrblock.post_id == self.post.id).order_by(Tumblrblock.order).all()
         self.content = []
@@ -149,42 +166,30 @@ class TumblrPostClient():
         
         #add layout info
         layout = [{ "type": "rows", "display": self.display}]
-        print(self.content)
-        print(layout)
-        print(self.media_sources)
+
         #send post to API
-        
-        if self.reblog:
-            response = self.client.reblog_post(
-                self.post.blogname,  # reblogging TO
-                self.post.blogname,  # rebloggin FROM
-                self.post.reblogid,
-                content=self.content,
-                layout=layout,
-                media_sources=self.media_sources,
-                tags=self.post.tumblrtags
-            )
-            if "errors" in response:
-                self.success = False
-                self.message = json.dumps(response)
-            else:
-                self.success = True
-                self.message = "Tumblr post sent"
+        response = self.client.create_post(
+            self.post.blogname,
+            content=self.content,
+            layout=layout,
+            media_sources=self.media_sources,
+            tags=self.post.tumblrtags
+        )
+        if "errors" in response:
+            self.success = False
+            self.message += json.dumps(response)
         else:
-            response = self.client.create_post(
-                self.post.blogname,
-                content=self.content,
-                layout=layout,
-                media_sources=self.media_sources,
-                tags=self.post.tumblrtags
-            )
+            self.success = True
+            self.message += "Tumblr post sent"
+            postid = response["id"]
+            response = self.client.get_single_post(self.post.blogname,postid)
             if "errors" in response:
                 self.success = False
-                self.message = json.dumps(response)
+                self.message += json.dumps(response)
             else:
-                self.success = True
-                self.message = "Tumblr post sent"
-            self.post.reblogid = response["id"]
+                self.post.reblogid = postid
+                self.post.uuid = response['blog']['uuid']
+                self.post.reblogkey = response['reblog_key']
             
 
     def processtextblock(self, npf):
@@ -263,10 +268,11 @@ class TumblrPostClient():
         return provider
 
 class BlueSkyClient():
-    def __init__(self, post, session=db.session):
+    def __init__(self, post, repost=False, session=db.session):
         self.success = True
         self.message = ''
         self.post = post
+        self.repost = repost
         self.session = session
         self.client = Client()
         self.client.login(os.getenv("BLUESKY_USERNAME"), os.getenv("BLUESKY_PASSWORD"))
@@ -277,6 +283,19 @@ class BlueSkyClient():
 
     def sendblueskypost(self):
         skeets = Blueskyskeet.query.filter(Blueskyskeet.post_id == self.post.id).order_by(Blueskyskeet.order).all()
+
+        if skeets and self.repost:
+            try:
+                response = self.client.get_posts([skeets[0].uri])
+                if len(response['posts']) > 0:
+                    self.client.repost(uri=skeets[0].uri, cid=skeets[0].cid)
+                    self.message = "BlueSky repost sent"
+                    return
+                else:
+                    self.message = "Repost failed. Trying regular posting. "
+            except Exception as ex:
+                self.message += str(ex)
+
         root = None
         parent = None
         for skeet in skeets:
@@ -293,7 +312,7 @@ class BlueSkyClient():
                         parent = models.create_strong_ref(self.client.send_images(text=skeet.text.decode('UTF-8'),facets=facets,images=images,image_aspect_ratios=aspects,reply_to=models.AppBskyFeedPost.ReplyRef(parent=parent_ref, root=root)))
                 except Exception as ex:
                     self.success = False
-                    self.message = str(ex)
+                    self.message += str(ex)
             else:
                 try:
                     if root == None:
@@ -304,10 +323,19 @@ class BlueSkyClient():
                         parent = models.create_strong_ref(self.client.send_post(text=skeet.text.decode('UTF-8'),facets=facets,reply_to=models.AppBskyFeedPost.ReplyRef(parent=parent_ref, root=root)))
                 except Exception as ex:
                     self.success = False
-                    self.message = str(ex)
+                    self.message += str(ex)
+
+            try:
+                skeet.parentcid = root.cid
+                skeet.parenturi = root.uri
+                skeet.cid = parent.cid
+                skeet.uri = parent.uri
+            except Exception as ex:
+                self.success = False
+                self.message += str(ex)
                    
         if self.success:
-            self.message ="BlueSky post sent"
+            self.message += " BlueSky post sent"
 
     def processfacets(self, skeet):
         facets = []

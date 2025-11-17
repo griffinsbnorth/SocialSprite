@@ -22,6 +22,9 @@ class Post(db.Model):
     forbluesky = db.Column(db.Boolean, default=True, nullable=False)
     tumblrtags = db.Column(db.JSON, nullable=True)
     blogname = db.Column(db.String(150), default="")
+    reblogid = db.Column(db.String(256), default="")
+    uuid = db.Column(db.String(256), default="")
+    reblogkey = db.Column(db.String(256), default="")
 
 class Tumblrblock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -33,7 +36,6 @@ class Tumblrblock(db.Model):
     embed = db.Column(db.String(512), default="")
     quillops = db.Column(db.JSON)
     npf = db.Column(db.JSON)
-    reblogid = db.Column(db.String(512), default="")
 
 class Blueskyskeet(db.Model):
     id = db.Column(db.Integer, primary_key=True)
