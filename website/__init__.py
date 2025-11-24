@@ -1,3 +1,4 @@
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_MISSED
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_apscheduler import APScheduler
@@ -14,6 +15,7 @@ def create_app():
     db.init_app(app)
     if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         scheduler.init_app(app)
+        scheduler.add_listener(scheduler_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
         scheduler.start()
 
     from .views import views
@@ -43,3 +45,9 @@ def create_app():
         return User.query.get(int(id))
 
     return app
+
+def scheduler_listener(event):
+    if event.exception:
+        scheduler.app.logger.error(event.traceback)
+    else:
+        scheduler.app.logger.error(f"Job {event.job_id} missed scheduled run time: {event.scheduled_run_time}")

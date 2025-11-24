@@ -200,7 +200,7 @@ class Processwatcher():
                     job = scheduler.modify_job(jobname,"default",trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
                     current_app.logger.info(f"Watcher rescheduled for: {job.next_run_time}")
                 else:
-                    job = scheduler.add_job(jobname,watcher,args=[dbwatcher.id],trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE))
+                    job = scheduler.add_job(jobname,watcher,args=[dbwatcher.id],trigger="cron",month=month_str,day=day_of_month_str,hour=hour_str,minute=minute_str,day_of_week=daylist_str,timezone=ZoneInfo(Config.TIMEZONE),replace_existing=True)
                     current_app.logger.info(f"Watcher scheduled for: {job.next_run_time}")
         except Exception as ex:
             db.session.rollback()
