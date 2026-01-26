@@ -2,6 +2,7 @@ import datetime
 from datetime import timedelta
 import json
 import uuid
+from zoneinfo import ZoneInfo
 from .models import Image as DBImage
 from .models import Post, Blueskyskeet, Tumblrblock, Tag, Postjob
 from . import db, scheduler
@@ -23,7 +24,7 @@ def sendpostjob(postjobid):
             #check for tumblr
             if dbpost.fortumblr:
                 poster = TumblrPostClient(dbpost,reblog=dbpostjob.repost)
-                poster.sendtumblrpost()
+                #poster.sendtumblrpost()
                 if poster.success:
                     app.logger.info(f"{poster.message}: {run_date}")
                 else:
@@ -32,7 +33,7 @@ def sendpostjob(postjobid):
             #check for bluesky
             if dbpost.forbluesky:
                 poster = BlueSkyClient(dbpost,repost=dbpostjob.repost)
-                poster.sendblueskypost()
+                #poster.sendblueskypost()
                 if poster.success:
                     app.logger.info(f"{poster.message}: {run_date}")
                 else:
@@ -41,14 +42,13 @@ def sendpostjob(postjobid):
             dbpostjob.published = True
             db.session.flush()
             if dbpost.cycle and not dbpostjob.repost:
-                #update cycledate and scheduledate
-                datediff = (dbpost.cycledate - dbpost.publishdate) * 2
-                dbpost.publishdate = dbpost.cycledate
-                dbpost.cycledate = dbpost.cycledate + datediff
-                #generate postjobs
                 postprocessor = Processpost(dbpost.id)
+                #update cycledate and scheduledate
+                dbpost.publishdate = postprocessor.find_best_day(dbpost.publishdate + timedelta(weeks=dbpost.cycleweeks))
+                dbpost.cycleweeks = dbpost.cycleweeks + 1
+                #generate postjobs
                 postprocessor.generate_post_jobs(dbpost)
-                if datediff.days >= 180:
+                if dbpost.cycleweeks >= 25:
                     dbpost.cycle = False
 
             db.session.commit()

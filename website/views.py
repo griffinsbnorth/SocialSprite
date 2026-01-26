@@ -34,7 +34,7 @@ def addpost():
         'id': -1,
         'title': '', 
         'scheduledate': '', 
-        'cycledate': '',
+        'cycleweeks': 1,
         'time': '08:00',
         'repost': True,
         'cycle': True,
@@ -81,7 +81,6 @@ def editpost(postid):
         return render_template("404.html", user=current_user)
 
     scheduledatetime = editpost.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
-    cycledatetime = editpost.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
     skeetsdata = getskeets(postid)
     tumblrdata = gettumblrblocks(postid)
 
@@ -89,7 +88,7 @@ def editpost(postid):
         'id': postid,
         'title': editpost.title, 
         'scheduledate': scheduledatetime.strftime('%Y-%m-%d'), 
-        'cycledate': cycledatetime.strftime('%Y-%m-%d'),
+        'cycleweeks': editpost.cycleweeks,
         'time': scheduledatetime.strftime('%H:%M'),
         'repost': editpost.repost,
         'cycle': editpost.cycle,
@@ -123,7 +122,6 @@ def posts():
 
     for item in pagination.items:
         item.publishdate = item.publishdate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
-        item.cycledate = item.cycledate.replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo(Config.TIMEZONE))
 
     return render_template("posts.html", user=current_user, pagination=pagination)
 
@@ -144,7 +142,7 @@ def addwatcher():
         'posttext': '',
         'pagenum': 1,
         'scheduledata': {'month':0,'day_of_month':0,'day_of_week':[],'hour':-1,'minute':-1}, 
-        'cycledelta': {'days':0,'weeks':0},
+        'cycleweeks': 1,
         'repost': True,
         'cycle': True,
         'images': True,
@@ -187,7 +185,6 @@ def editwatcher(watcherid):
         return render_template("404.html", user=current_user)
 
     scheduledata = editwatcher.scheduledata
-    cycledelta = editwatcher.cycledelta
     postcheckmarks = editwatcher.postcheckmarks
 
     watcherdata = {
@@ -204,7 +201,7 @@ def editwatcher(watcherid):
         'posttext': editwatcher.posttext,
         'pagenum': editwatcher.pagesperupdate,
         'scheduledata': {'month':scheduledata['month'],'day_of_month':scheduledata['day_of_month'],'day_of_week':scheduledata['day_of_week'],'hour':scheduledata['hour'],'minute':scheduledata['minute']}, 
-        'cycledelta': {'days':cycledelta['days'],'weeks':cycledelta['weeks']},
+        'cycleweeks': editwatcher.cycleweeks,
         'repost': 'repost' in postcheckmarks,
         'cycle': 'cycle' in postcheckmarks,
         'images': 'images' in postcheckmarks,
@@ -440,7 +437,7 @@ def patreon_post():
         blacklist = ['The stream is up!']
         post_data = data["data"]
         publishdate = datetime.datetime.now() + timedelta(hours=1)
-        cycledate = datetime.datetime.now() + timedelta(weeks=5)
+        cycleweeks = 5
         user = User.query.filter(User.username == os.getenv("SS_USERNAME")).first()
 
         if not user:
@@ -469,7 +466,7 @@ def patreon_post():
         pdata['title'] = latest_post['title']
         pdata['scheduledate'] = publishdate.strftime("%Y-%m-%d")
         pdata['time'] = publishdate.strftime("%H:%M")
-        pdata['cycledate'] = cycledate.strftime("%Y-%m-%d")
+        pdata['cycleweeks'] = cycleweeks
         pdata['tags'] = tags
         pdata['blogname'] = ''
         pdata['fileorder'] = '{}'
@@ -566,6 +563,9 @@ def formatscheduledata(scheduledata):
 
 def getcalendarmonth(year, month):
     startdate = datetime.datetime(year,month,1,tzinfo=ZoneInfo(Config.TIMEZONE))
+    if month == 12:
+        month = 1
+        year += 1
     enddate = datetime.datetime(year,month + 1,1,tzinfo=ZoneInfo(Config.TIMEZONE))
     startdate = startdate.replace(tzinfo=ZoneInfo(Config.TIMEZONE)).astimezone(ZoneInfo("UTC"))
     enddate = enddate.replace(tzinfo=ZoneInfo(Config.TIMEZONE)).astimezone(ZoneInfo("UTC"))

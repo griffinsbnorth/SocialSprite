@@ -40,7 +40,7 @@
                 <span class="slider round"></span>
             </label>
             {% if post.cycle %}
-            {{ post.cycledate }}
+            {{ post.cycleweeks }} week(s)
             {% endif %}
             <button type="button" class="btn btn-primary" onClick="runpost({{ post.id }}, {{ pagination.page }})">POST NOW</button>
         </div>

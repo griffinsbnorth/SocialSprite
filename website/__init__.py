@@ -51,3 +51,24 @@ def scheduler_listener(event):
         scheduler.app.logger.error(event.traceback)
     else:
         scheduler.app.logger.error(f"Job {event.job_id} missed scheduled run time: {event.scheduled_run_time}")
+
+    with scheduler.app.app_context():
+        from .models import Postjob, Post
+        dbpostjob = Postjob.query.get(event.job_id)
+        if dbpostjob:
+            dbpost = Post.query.get(dbpostjob.post_id)
+            if dbpost:
+                from .processpost import Processpost
+                import datetime
+                import pytz
+                from datetime import timedelta
+                from config import Config
+                tz = pytz.timezone(Config.TIMEZONE)
+                currenttime = datetime.datetime.now(tz)
+                #only reschedule jobs if they haven't already been resheduled via the generate_post_jobs function
+                if dbpost.publishdate < currenttime:
+                    dbpost.publishdate = currenttime + timedelta(hours=1)
+                    #generate postjobs
+                    postprocessor = Processpost(dbpost.id)
+                    postprocessor.generate_post_jobs(dbpost)
+                    db.session.commit()

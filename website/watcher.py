@@ -19,13 +19,14 @@ from . import db, scheduler
 from dotenv import load_dotenv
 import os
 from config import Config
+from delta.base import Delta
+from website.deltatonpf import deltaToNpf
 
 def watcher(watcherid):
     app = scheduler.app
     with app.app_context():
         watcher = Watcher.query.get(watcherid)
 
-        running = False
         match watcher.wtype:
             case "comic":
                 watchercomic(watcher)
@@ -36,10 +37,6 @@ def watcher(watcherid):
             case "twitch":
                 watchertwitch(watcher)
 
-        if not running:
-            jobname = "w" + str(watcher.id)
-            scheduler.pause_job(jobname)
-
 def watchertwitch(watcher:Watcher):
     stream_url = watcher.url
     postcheckmarks = watcher.postcheckmarks
@@ -47,8 +44,7 @@ def watchertwitch(watcher:Watcher):
     bstags = watcher.bstags
     blogname = watcher.blogname
     posttext = watcher.posttext
-    #cycledelta is a list of time ---> days, weeks
-    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
+    cycleweeks = watcher.cycleweeks
 
     data = MultiDict()
     files = MultiDict()
@@ -97,22 +93,23 @@ def watchertwitch(watcher:Watcher):
         #setting publish time
         tz = pytz.timezone(Config.TIMEZONE)
         publishdate = datetime.datetime.now(tz) + timedelta(minutes=5)
-        cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
 
         data['title'] = stream_data[0]['title'] + ' ' + publishdate.strftime("%Y-%m-%d")
         data['scheduledate'] = publishdate.strftime("%Y-%m-%d")
         data['time'] = publishdate.strftime("%H:%M")
-        data['cycledate'] = cycledate.strftime("%Y-%m-%d")
+        data['weeks'] = cycleweeks
         data['tags'] = tbtags
         data['blogname'] = blogname
         data['fileorder'] = '{}'
         #add checks
         for postcheckmark in postcheckmarks:
             data[postcheckmark] = postcheckmark
-            
+        
+        #always add this even if there's no bluesky in post
+        data.add('bsskeetlen', '1')
+
         #prep bluesky post data
         if 'bluesky' in postcheckmarks:
-            data.add('bsskeetlen', '1')
             bstext = '[{"attributes":{"link":"' + stream_url + '"},"insert":"' + stream_data[0]['title'] + '"},{"insert":" '
             if posttext:
                 bstext += posttext + ' '
@@ -129,6 +126,8 @@ def watchertwitch(watcher:Watcher):
                 tbtext += ',{"insert":"\\n' + posttext + '\\n"}'
             tbtext += ']'
             data.add('tbtext2', tbtext)
+            npf = generateNpfFromText(tbtext)
+            data.add('npf2', str(npf))
 
         #send to create post
         postprocessor = Processpost(watcher_request=True)
@@ -154,8 +153,7 @@ def watcherblog(watcher:Watcher):
     bstags = watcher.bstags
     blogname = watcher.blogname
     posttext = watcher.posttext
-    #cycledelta is a list of time ---> days, weeks
-    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
+    cycleweeks = watcher.cycleweeks
 
     fileorder = {}
     fileindex = 0
@@ -166,15 +164,13 @@ def watcherblog(watcher:Watcher):
     blog_feed = feedparser.parse(feed_url)
     posts = blog_feed.entries
 
-    if lastupdate != posts[0].published:
+    #if lastupdate != posts[0].published:
+    if True:
         postprocessor = Processpost(watcher_request=True)
 
         #setting publish time
         tz = pytz.timezone(Config.TIMEZONE)
         publishdate = datetime.datetime.now(tz) + timedelta(hours=5)
-        cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
-        if 'cycle' in postcheckmarks:
-            cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
         soup = BeautifulSoup(posts[0].content[0].value, 'html5lib')
         summarysoup = BeautifulSoup(posts[0].summary, 'html5lib')
@@ -197,12 +193,23 @@ def watcherblog(watcher:Watcher):
                         fileorder[filename] = fileindex
                         filenamelist.append(filename)
                         fileindex += 1
-                data['fileorder'] = json.dumps(fileorder)
-            else: 
+                if fileorder:
+                        data['fileorder'] = json.dumps(fileorder)
+                else:
+                    postcheckmarks.remove('images')
+                    postcheckmarks.remove('bshasimages')
+                    postcheckmarks.remove('tbhasimages')
+                    data['fileorder'] = '{}'
+            else:
                 postcheckmarks.remove('images')
                 postcheckmarks.remove('bshasimages')
                 postcheckmarks.remove('tbhasimages')
                 data['fileorder'] = '{}'
+        else:
+            data['fileorder'] = '{}'
+
+        #always add this even if there's no bluesky in post
+        data.add('bsskeetlen', '1')
 
         #prep bluesky post data
         if 'bluesky' in postcheckmarks:
@@ -217,7 +224,6 @@ def watcherblog(watcher:Watcher):
                 for i in range(remainingemptyfiles):
                     data.add('bsimgs', 'none')
 
-            data.add('bsskeetlen', '1')
             if not posttext:
                 posttext = "Read more!"
             wordlimit = 290 - len(posttext) - len(bstags)
@@ -239,7 +245,7 @@ def watcherblog(watcher:Watcher):
         data['title'] = posts[0].title
         data['scheduledate'] = publishdate.strftime("%Y-%m-%d")
         data['time'] = publishdate.strftime("%H:%M")
-        data['cycledate'] = cycledate.strftime("%Y-%m-%d")
+        data['weeks'] = cycleweeks
         data['tags'] = tbtags
         data['blogname'] = blogname
 
@@ -271,17 +277,13 @@ def watcheryoutube(watcher:Watcher):
     tbtags = watcher.tbtags
     bstags = watcher.bstags
     blogname = watcher.blogname
-    #cycledelta is a list of time ---> days, weeks
-    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
+    cycleweeks = watcher.cycleweeks
 
     files = MultiDict() #This should remain empty
 
     #setting publish time
     tz = pytz.timezone(Config.TIMEZONE)
     publishdate = datetime.datetime.now(tz) + timedelta(hours=5)
-    cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
-    if 'cycle' in postcheckmarks:
-        cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
     lastpublishdatetime = datetime.datetime.min.replace(tzinfo=ZoneInfo("UTC"))
     if lastupdate:
@@ -298,7 +300,7 @@ def watcheryoutube(watcher:Watcher):
             data['title'] = post.title
             data['scheduledate'] = publishdate.strftime("%Y-%m-%d")
             data['time'] = publishdate.strftime("%H:%M")
-            data['cycledate'] = cycledate.strftime("%Y-%m-%d")
+            data['weeks'] = cycleweeks
             if newtags:
                 data['tags'] = newtags + ',' + tbtags
             else:
@@ -309,9 +311,11 @@ def watcheryoutube(watcher:Watcher):
             for postcheckmark in postcheckmarks:
                 data[postcheckmark] = postcheckmark
             
+            #always add this even if there's no bluesky in post
+            data.add('bsskeetlen', '1')
+
             #prep bluesky post data
             if 'bluesky' in postcheckmarks:
-                data.add('bsskeetlen', '1')
                 newbstags = '#' + newtags.replace(',',' #')
                 bstext = '[{"attributes":{"link":"' + post.link + '"},"insert":"' + re.sub(r'([\"])', r'\\\1', post.title) + '"},{"insert":" '
                 if posttext:
@@ -337,6 +341,9 @@ def watcheryoutube(watcher:Watcher):
                     tbtext += ',{"insert":"\\n' + posttext + '\\n"}'
                 tbtext += ']'
                 data.add('tbtext2', tbtext)
+                npf = generateNpfFromText(tbtext)
+                data.add('npf2', str(npf))
+
 
              #send to create post
             postprocessor = Processpost(watcher_request=True)
@@ -377,8 +384,7 @@ def watchercomic(watcher:Watcher):
     tbtags = watcher.tbtags
     bstags = watcher.bstags
     blogname = watcher.blogname
-    #cycledelta is a list of time ---> days, weeks
-    cycledelta = [int(watcher.cycledelta["days"]), int(watcher.cycledelta["weeks"])]
+    cycleweeks = watcher.cycleweeks
 
     #variables exclusive to function
     fileorder = {}
@@ -414,9 +420,6 @@ def watchercomic(watcher:Watcher):
         #setting publish time
         tz = pytz.timezone(Config.TIMEZONE)
         publishdate = datetime.datetime.now(tz) + timedelta(hours=5)
-        cycledate = datetime.datetime.now(tz) + timedelta(weeks=1)
-        if 'cycle' in postcheckmarks:
-            cycledate = datetime.datetime.now() + timedelta(days=cycledelta[0],weeks=cycledelta[1])
 
         #get slug if needed
         slug = ''
@@ -482,9 +485,10 @@ def watchercomic(watcher:Watcher):
                 postcheckmarks.remove('tbhasimages')
                 data['fileorder'] = '{}'
 
+        #always add bskeetlen even if there's no bluesky in post
+        bsskeetlen = 1
         #prep bluesky post data
         if 'bluesky' in postcheckmarks:
-            bsskeetlen = 1
             if 'bshasimages' in postcheckmarks:
                 bsskeetlen = int(math.ceil(len(filenamelist)/4.0))
                 totalfileslots = bsskeetlen * 4
@@ -495,7 +499,6 @@ def watchercomic(watcher:Watcher):
                 for i in range(remainingemptyfiles):
                     data.add('bsimgs', 'none')
 
-            data.add('bsskeetlen', str(bsskeetlen))
             for i in range(bsskeetlen):
                 bstextkey = 'bstext' + str(i + 1)
                 txtpart = ''
@@ -506,6 +509,8 @@ def watchercomic(watcher:Watcher):
                     bstext += '{"insert":"\\n' + posttext + '\\n"},'
                 bstext += '{"insert":" ' + bstags + '\\n"}]'
                 data.add(bstextkey, bstext)
+
+        data.add('bsskeetlen', str(bsskeetlen))
 
         #prep tumblr post data
         if 'tumblr' in postcheckmarks:
@@ -523,13 +528,15 @@ def watchercomic(watcher:Watcher):
                 tbtext += '{"insert":"\\n' + posttext + '\\n"},'
             tbtext += '{"insert":"\\n(Source: ' + sourcelink + ')\\n"}]'
             data.add('tbtext' + str(tbindex), tbtext)
+            npf = generateNpfFromText(tbtext)
+            data.add('npf' + str(tbindex), str(npf))
 
 
         #prep data
         data['title'] = title
         data['scheduledate'] = publishdate.strftime("%Y-%m-%d")
         data['time'] = publishdate.strftime("%H:%M")
-        data['cycledate'] = cycledate.strftime("%Y-%m-%d")
+        data['weeks'] = cycleweeks
         data['tags'] = tbtags
         data['blogname'] = blogname
 
@@ -676,7 +683,7 @@ def htmltotumblrpost(soup,data,files,hasphotos,index = 0,wordlimit = MAXINT, pos
     openattribute = ''
     tbtype = ''
     wholetext = ''
-    tumblrlimit = 4096
+    tumblrlimit = 3500
     attribute = ''
     blocktext = ''
     for el in soup.descendants:
@@ -691,6 +698,8 @@ def htmltotumblrpost(soup,data,files,hasphotos,index = 0,wordlimit = MAXINT, pos
                                 blocktext = ''
                                 text = text[:-1] + ']'
                                 data.add('tbtext' + str(index), text)
+                                npf = generateNpfFromText(text)
+                                data.add('npf' + str(index), str(npf))
                                 text = '['
                             tbtype = "photo"
                             index += 1
@@ -706,6 +715,8 @@ def htmltotumblrpost(soup,data,files,hasphotos,index = 0,wordlimit = MAXINT, pos
                     if overblocklimit:
                         text = text[:-1] + ']'
                         data.add('tbtext' + str(index), text)
+                        npf = generateNpfFromText(text)
+                        data.add('npf' + str(index), str(npf))
                         text = '['
                     if overblocklimit or tbtype != "text":
                         blocktext = ''
@@ -801,6 +812,8 @@ def htmltotumblrpost(soup,data,files,hasphotos,index = 0,wordlimit = MAXINT, pos
     if len(text) > 1:
         text = text[:-1] + ']'
         data.add('tbtext' + str(index), text)
+        npf = generateNpfFromText(text)
+        data.add('npf' + str(index), str(npf))
     if wordlimit != MAXINT:
         index += 1
         data.add('tbtype', 'text:' + str(index))
@@ -809,5 +822,13 @@ def htmltotumblrpost(soup,data,files,hasphotos,index = 0,wordlimit = MAXINT, pos
         else:
             text = '[{"insert":"' + posttext + ' (Source: ' + link +')\\n"}]'
         data.add('tbtext' + str(index), text)
+        npf = generateNpfFromText(text)
+        data.add('npf' + str(index), str(npf))
 
     return
+
+def generateNpfFromText(text):
+    tbtextops = json.loads(text,strict=False)
+    newdelta = Delta(tbtextops)
+    npf = deltaToNpf(newdelta)
+    return json.dumps(npf)

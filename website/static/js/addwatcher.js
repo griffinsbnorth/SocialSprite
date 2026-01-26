@@ -28,9 +28,8 @@ $(document).ready(function () {
         day_of_week.checked = watcherdata['scheduledata']['day_of_week'].includes(day_of_week.value);
     });
 
-    //cycle delta
-    $('#days').val(watcherdata['cycledelta']['days']);
-    $('#weeks').val(watcherdata['cycledelta']['weeks']);
+    //cycle weeks
+    $('#weeks').val(watcherdata['cycleweeks']);
 
     //tumblr section
     $('#blogname').val(watcherdata['blogname']);
@@ -95,9 +94,8 @@ $(document).ready(function () {
         }
 
         if ($('#cycle').is(':checked')) {
-            const days_is_empty = $('#days').val() == 0
             const weeks_is_empty = $('#weeks').val() == 0
-            if (days_is_empty && weeks_is_empty) {
+            if (weeks_is_empty) {
                 errormsg += 'Missing cycle data.</br>';
                 error = true;
             }
@@ -188,16 +186,6 @@ function toggleSection() {
 
     submit.disabled = !tumblrcheck && !blueskycheck;
 };
-
-function setCycleMinDate(date) {
-    var cycledate = new Date(date);
-    cycledate.setUTCDate(cycledate.getUTCDate() + 8);
-    $('#cycledate').attr('min', cycledate.toLocaleDateString());
-    var olddate = new Date($('#cycledate').val());
-    if (olddate < cycledate) {
-        $('#cycledate').val(cycledate.toLocaleDateString());
-    }
-}
 
 function removeElement(element) {
     var removedElement = document.getElementById(element);

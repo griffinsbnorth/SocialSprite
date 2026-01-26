@@ -45,7 +45,6 @@ $(document).ready(function () {
 
     //set datepicker
     var scheduledatestring = postdata['scheduledate'];
-    var cycledatestring = postdata['cycledate'];
 
     var date = new Date();
     date.setUTCDate(date.getUTCDate() + 1);
@@ -57,25 +56,10 @@ $(document).ready(function () {
     } else {
         scheduledatestring = date.toLocaleDateString();
     }
-    var cycledate = new Date(scheduledatestring);
-    cycledate.setUTCDate(cycledate.getUTCDate() + 8);
-    if (cycledatestring != '') {
-        var cydate = new Date(cycledatestring);
-        var scheddate = new Date(scheduledatestring);
-        if (cydate < scheddate) {
-            cycledatestring = cycledate.toLocaleDateString();
-        }
-        if (cydate < cycledate) {
-            cycledate = cydate;
-        }
-    } else {
-        cycledatestring = cycledate.toLocaleDateString();
-    }
+
     $('#scheduledate').attr('min', date.toLocaleDateString());
     $('#scheduledate').val(scheduledatestring);
-    $('#scheduledate').on('change', function () { setCycleMinDate(this.value) });
-    $('#cycledate').attr('min', cycledate.toLocaleDateString());
-    $('#cycledate').val(cycledatestring);
+    $('#weeks').val(postdata['cycleweeks']);
     $('#time').val(postdata['time']);
 
     //image section
@@ -507,16 +491,6 @@ function toggleSection(val, section) {
     const blueskycheck = document.getElementById('bluesky').checked;
     submit.disabled = !tumblrcheck && !blueskycheck;
 };
-
-function setCycleMinDate(date) {
-    var cycledate = new Date(date);
-    cycledate.setUTCDate(cycledate.getUTCDate() + 8);
-    $('#cycledate').attr('min', cycledate.toLocaleDateString());
-    var olddate = new Date($('#cycledate').val());
-    if (olddate < cycledate) {
-        $('#cycledate').val(cycledate.toLocaleDateString());
-    }
-}
 
 function countChar(index, counter) {
     var len = bsrichTxtEditors[index].getText().trim().length;

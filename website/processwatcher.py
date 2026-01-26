@@ -54,7 +54,6 @@ class Processwatcher():
             repost = data.get('repost') != None
 
             cycle = data.get('cycle') != None
-            days = data.get('days')
             weeks = data.get('weeks')
 
             images = data.get('images') != None
@@ -83,7 +82,7 @@ class Processwatcher():
             self.message = ''
             if (month == 0 and day_of_month == 0 and not day_of_week and hour == -1 and minute == -1):
                 self.message += 'At least one schedule behaviour must be chosen' + '\n'
-            if (cycle and days == 0 and weeks == 0):
+            if (cycle and weeks == 0):
                 self.message += 'Missing cycle data.' + '\n'
             if (images and not tbhasimages and not bshasimages):
                 self.message += 'Images is selected but no social media was selected to add images to.' + '\n'
@@ -119,6 +118,8 @@ class Processwatcher():
                 dbwatcher = Watcher()
                 if self.watcherid != -1:
                      dbwatcher = Watcher.query.get(self.watcherid)
+                     if dbwatcher.wtype != wtype:
+                         dbwatcher.lastupdate = ''
 
                 scheduledata = {}
                 scheduledata['month'] = month
@@ -163,9 +164,9 @@ class Processwatcher():
                 dbwatcher.bstags = bstags
                 dbwatcher.tbtags = tbtags
                 dbwatcher.blogname = blogname
-                dbwatcher.cycledelta = {'days':days,'weeks':weeks}
+                dbwatcher.cycleweeks = weeks
                 dbwatcher.scheduledata = scheduledata
-
+                dbwatcher.lastupdate = ""
                 if self.watcherid == -1:
                     dbwatcher.lastupdate = ""
                     dbwatcher.lastran = datetime.datetime.now().astimezone(ZoneInfo("UTC"))

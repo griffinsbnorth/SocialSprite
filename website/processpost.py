@@ -9,6 +9,7 @@ import datetime
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
+from website.deltatonpf import deltaToNpf
 from website.sendpost import sendpostjob
 from . import db, scheduler
 import json
@@ -66,7 +67,7 @@ class Processpost():
 
             title = data.get('title')
             scheduledate = data.get('scheduledate')
-            cycledate = data.get('cycledate')
+            cycleweeks = data.get('weeks')
             time = data.get('time')
             if (time == ''):
                 time = '00:00'
@@ -93,9 +94,7 @@ class Processpost():
 
             validtitle = self.validatetextfield('Title', title, 150)
             validscheduledate = True
-            validcycledate = True
             publishdatetime = datetime.datetime.now()
-            cycledatetime = datetime.datetime.now()
 
             #create dates
             try:
@@ -103,25 +102,16 @@ class Processpost():
                 validscheduledate = bool(publishdatetime)
             except ValueError:
                 validscheduledate = False
-                
-            try:
-                cycledatetime = datetime.datetime.strptime(cycledate, "%Y-%m-%d").replace(tzinfo=ZoneInfo(Config.TIMEZONE))
-                validcycledate = bool(cycledatetime)
-            except ValueError:
-                validcycledate = False
 
             if not validtitle['status']:
                 self.message += validtitle['message'] + '\n'
             elif scheduledate == '':
                 self.message += 'Missing schedule date.' + '\n'
-            elif cycledate == '':
-                self.message += 'Missing cycle date.' + '\n'
+            elif cycleweeks == 0:
+                self.message += 'Missing cycle data.' + '\n'
             elif not validscheduledate:
                 self.message += 'Invalid schedule date.' + '\n'
                 scheduledate = ''
-            elif not validcycledate:
-                self.message += 'Invalid cycle date.' + '\n'
-                cycledate = ''
             elif images and not fileorder:
                 self.message += 'No attached images for image post.' + '\n'
             elif images and not tumblrhasimages and not blueskyhasimages:
@@ -145,7 +135,7 @@ class Processpost():
                  dbpost.publishdate = publishdatetime.astimezone(ZoneInfo("UTC"))
                  dbpost.repost = repost
                  dbpost.cycle = cycle
-                 dbpost.cycledate = cycledatetime.astimezone(ZoneInfo("UTC"))
+                 dbpost.cycleweeks = cycleweeks
                  dbpost.containsimages = images
                  dbpost.fortumblr = tumblr
                  dbpost.forbluesky = bluesky
@@ -203,10 +193,18 @@ class Processpost():
                                  npf = {}
                                  try:
                                     textops = json.loads(str(data.get('tbtext' + tbdata[1])),strict=False)
-                                    npf = json.loads(str(data.get('npf' + tbdata[1])),strict=False)
-                                    print(npf)
-                                 except:
-                                     current_app.logger.error(f"Process post tumblr text - Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}")
+                                 except Exception as e:
+                                     current_app.logger.error(f"Process post tumblr text - Could not parse into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}   {e}")
+                                     textops = {}
+                                     raise e
+                                 try:
+                                     npfstring = str(data.get('npf' + tbdata[1]))
+                                     print(npfstring)
+                                     npf = json.loads(npfstring,strict=False)
+                                 except Exception as e:
+                                     current_app.logger.error(f"Process post tumblr text - Could not parse npf into json, tbtext{tbindex}: {str(data.get('tbtext' + tbdata[1]))}   {e}")
+                                     npf = {}
+                                     raise e
                                  dbtblock = self.process_tblock(tbdata[0], textops, '', '', dbpost.id, tbindex, npf)
                                  dbtblocks.append(dbtblock)
                                  tbindex += 1
@@ -256,8 +254,9 @@ class Processpost():
                          skeet = {}
                          try:
                             skeet = json.loads(str(data.get('bstext' + str(i))),strict=False)
-                         except:
+                         except Exception as e:
                             current_app.logger.error(f"Process post skeet text - Could not parse into json, bstext{i}: {str(data.get('bstext' + str(i)))}")
+                            raise e
                          dbskeet = self.process_skeet(skeet, finalimagefiles, skeetimgs, dbpost.id, i)
                          dbskeets.append(dbskeet)
                          i += 1
@@ -274,11 +273,8 @@ class Processpost():
                  self.generate_post_jobs(dbpost)
 
         except Exception as ex:
-            self.session.rollback()
             self.message = 'Something went wrong with post add/edit: ' + str(self.postid) + ' -- ' + str(ex)
-            current_app.logger.error('Post processing exception raised.', exc_info=True)
-        else:
-            self.session.commit()
+            current_app.logger.error('Post processing exception raised.', exc_info=True) 
 
         #set success flag
         self.success = (self.message == '')
@@ -288,7 +284,9 @@ class Processpost():
             else:
                 self.message = 'Post successfully edited: ' + self.title
             current_app.logger.info(self.message)
+            self.session.commit()
         else:
+            self.session.rollback()
             current_app.logger.error(f'{self.message} : post -> {self.title}')
 
     def processimages(self, imagefiles, postid, fileorder, watermarks):
@@ -510,10 +508,20 @@ class Processpost():
         if post.forbluesky:
             posttitle += "BlueSky "
         dbpostjob = Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == False, Postjob.published == False).first()
+        dbepostjobs = Postjob.query.filter(Postjob.post_id == post.id, Postjob.published == False).all()
+        for dbepostjob in dbepostjobs:
+            if scheduler.get_job(str(dbepostjob.id)):
+                scheduler.remove_job(str(dbepostjob.id))
         addtodb = not dbpostjob
         if addtodb:
             dbpostjob = Postjob()
         
+        #get appropriate post time
+        tzpublishdate = post.publishdate.astimezone(ZoneInfo(Config.TIMEZONE))
+        noweekends = tzpublishdate.weekday() < 5
+
+        post.publishdate = self.find_next_timeslot(post.publishdate,noWeekends = noweekends)
+
         dbpostjob.user_id = post.user_id
         dbpostjob.post_id = post.id
         dbpostjob.title = posttitle
@@ -527,13 +535,15 @@ class Processpost():
         self.session.flush()
         dbpostjobs.append(dbpostjob)
         if (post.repost):
-            dbrepostjobs = Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).all()
-            for dbrepostjob in dbrepostjobs:
-                if scheduler.get_job(str(dbrepostjob.id)):
-                    scheduler.remove_job(str(dbrepostjob.id))
             Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).delete()
             noontime = post.publishdate + timedelta(hours=5)
-            eveningtime = noontime + timedelta(hours=6)
+            noontimetz = noontime.astimezone(ZoneInfo(Config.TIMEZONE))
+            if noweekends and noontimetz.weekday() >= 5:
+                daysToMonday = 7 - noontimetz.weekday()
+                noontime = (noontimetz + timedelta(days=daysToMonday)).astimezone(ZoneInfo("UTC"))
+            noontime = self.find_next_timeslot(noontime,noWeekends = noweekends)
+            eveningtime = self.find_next_timeslot(noontime + timedelta(hours=6),noWeekends = noweekends)
+
             dbpostjob_noon = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = noontime, repost = True, published = False)
             dbpostjob_evening = Postjob(post_id = post.id, user_id = post.user_id, title = posttitle, publishdate = eveningtime, repost = True, published = False)
 
@@ -546,11 +556,60 @@ class Processpost():
             Postjob.query.filter(Postjob.post_id == post.id, Postjob.repost == True, Postjob.published == False).delete()
      
         for dbjob in dbpostjobs:
-            if scheduler.get_job(str(dbjob.id)):
-                scheduler.modify_job(str(dbjob.id),"default",trigger="date",run_date=dbjob.publishdate)
-                current_app.logger.info(f"Post job rescheduled for: {dbjob.publishdate}")
-            else:
-                scheduler.add_job(str(dbjob.id),sendpostjob,args=[dbjob.id],trigger="date",run_date=dbjob.publishdate,replace_existing=True)
-                current_app.logger.info(f"Post job scheduled for: {dbjob.publishdate}")
+            scheduler.add_job(str(dbjob.id),sendpostjob,args=[dbjob.id],trigger="date",run_date=dbjob.publishdate,replace_existing=True)
+            current_app.logger.info(f"Post job scheduled for: {dbjob.publishdate}")
 
         return dbpostjobs
+
+    def find_next_timeslot(self,scheduledate, hourlimit = 4, noWeekends = True):
+        scheduledatetz = scheduledate.astimezone(ZoneInfo(Config.TIMEZONE))
+        newdate = scheduledatetz
+        enddate = newdate + timedelta(weeks=1, days=1)
+        endhour = scheduledatetz.hour + hourlimit
+        if endhour > 23:
+            endhour = 23
+        if endhour < 0:
+            endhour = 1
+        alljobs = scheduler.scheduler.get_jobs()
+        allscheduledjobs = [x for x in alljobs if x.next_run_time != None]
+        allscheduledjobs.sort(key=lambda x: x.next_run_time)
+        for job in allscheduledjobs:
+            jobtz = job.next_run_time.astimezone(ZoneInfo(Config.TIMEZONE))
+            if jobtz >= newdate - timedelta(minutes=5) and jobtz <= newdate + timedelta(minutes=5):
+                newdate = newdate + timedelta(hours=1)
+                if newdate.hour == endhour:
+                    hoursToNextSlot = 24 - newdate.hour + scheduledatetz.hour
+                    newdate = newdate + timedelta(hours=hoursToNextSlot)
+                if noWeekends and newdate.weekday() >= 5:
+                    daysToMonday = 7 - newdate.weekday()
+                    newdate = newdate + timedelta(days=daysToMonday)
+
+        if newdate > enddate:
+            newdate = scheduledatetz
+
+        return newdate.astimezone(ZoneInfo("UTC"))
+
+    def find_best_day(self,scheduledate):
+        nextrundate = (scheduledate).astimezone(ZoneInfo(Config.TIMEZONE))
+        nextrundate.hour = 8
+        nextmonday = 0 - nextrundate.weekday()
+        if nextmonday <= -5:
+            nextmonday += 7
+        start = (nextrundate + timedelta(days=nextmonday)).astimezone(ZoneInfo("UTC"))
+        end = (nextrundate + timedelta(days=4 + nextmonday)).astimezone(ZoneInfo("UTC"))
+
+        jobsperday = {0:0,1:0,2:0,3:0,4:0,5:0,6:0}
+        bestday = 0
+        alljobs = scheduler.scheduler.get_jobs()
+        allscheduledjobs = [x for x in alljobs if x.next_run_time != None]
+        for job in allscheduledjobs:
+            if job.next_run_time >= start and job.next_run_time <= end:
+                jobsperday[job.next_run_time.weekday()] += 1
+
+        min_val = min(jobsperday.values())
+        for day, val in jobsperday.items():
+            if val == min_val:
+                bestday = day
+                break
+
+        return start + timedelta(days=bestday)
