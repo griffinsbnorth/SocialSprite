@@ -408,6 +408,7 @@ def patreon_post():
     """
     Endpoint to receive Patreon webhook events
     """
+    from website.watcher import generateNpfFromText
     from dotenv import load_dotenv
     load_dotenv()
     # Verify the webhook signature
@@ -482,6 +483,8 @@ def patreon_post():
         pdata.add('tblink1url', latest_post['url'])
         tbtext = '[{"insert":"' + latest_post['title'] + '"},{"attributes":{"header":1},"insert":"\\n"},{"insert":"New post up on patreon!\\n"}]'
         pdata.add('tbtext2', tbtext)
+        npf = generateNpfFromText(tbtext)
+        pdata.add('npf2', str(npf))
 
         files = MultiDict() #This should remain empty
         postprocessor = Processpost()
