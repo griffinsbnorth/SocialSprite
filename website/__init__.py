@@ -9,11 +9,11 @@ from flask_login import LoginManager
 db = SQLAlchemy()
 scheduler = APScheduler()
 
-def create_app():
+def create_app(configname="config.DevelopmentConfig"):
     app = Flask(__name__)
-    app.config.from_object("config.DevelopmentConfig")
+    app.config.from_object(configname)
     db.init_app(app)
-    if not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    if (not app.debug or os.environ.get("WERKZEUG_RUN_MAIN") == "true" or app.testing):
         scheduler.init_app(app)
         scheduler.add_listener(scheduler_listener, EVENT_JOB_MISSED | EVENT_JOB_ERROR)
         scheduler.start()
@@ -32,7 +32,12 @@ def create_app():
         db.create_all()
         users = User.query.all()
         if (len(users) == 0):
-            new_user = User(username=os.getenv("SS_USERNAME"), password=generate_password_hash(os.getenv("SS_PASSWORD"), method='pbkdf2:sha256'))
+            newusername = "test_user"
+            newpassword = "test_password"
+            if app.config["TESTING"] == False:
+                newusername = os.getenv("SS_USERNAME")
+                newpassword = os.getenv("SS_PASSWORD")
+            new_user = User(username=newusername, password=generate_password_hash(newpassword, method='pbkdf2:sha256'))
             db.session.add(new_user)
             db.session.commit()
 

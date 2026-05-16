@@ -27,15 +27,18 @@ def watcher(watcherid):
     with app.app_context():
         watcher = Watcher.query.get(watcherid)
 
+        data = {}
         match watcher.wtype:
             case "comic":
-                watchercomic(watcher)
+                data = watchercomic(watcher)
             case "blog":
-                watcherblog(watcher)
+                data = watcherblog(watcher)
             case "youtube":
-                watcheryoutube(watcher)
+                data = watcheryoutube(watcher)
             case "twitch":
-                watchertwitch(watcher)
+                data = watchertwitch(watcher)
+
+        return data
 
 def watchertwitch(watcher:Watcher):
     stream_url = watcher.url
@@ -143,7 +146,8 @@ def watchertwitch(watcher:Watcher):
             watcher.running = False
 
         db.session.commit()
-    return watcher.running
+
+    return data
 
 def watcherblog(watcher:Watcher):
     feed_url = watcher.url
@@ -266,7 +270,7 @@ def watcherblog(watcher:Watcher):
             watcher.running = False
 
         db.session.commit()
-    return watcher.running
+    return data
 
 def watcheryoutube(watcher:Watcher):
     # url of youtube feed
@@ -362,7 +366,7 @@ def watcheryoutube(watcher:Watcher):
             watcher.running = False
 
         db.session.commit()
-    return watcher.running
+    return data
 
 def watchercomic(watcher:Watcher):
     ua = ua_generator.generate()
@@ -574,7 +578,7 @@ def watchercomic(watcher:Watcher):
 
         db.session.commit()
 
-    return watcher.running
+    return data
 
 def getslug(fullurl):
     url_parsed = urlparse(fullurl)

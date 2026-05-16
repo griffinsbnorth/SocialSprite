@@ -7,3 +7,5 @@ instance/
 uploads/
 jobs.sqlite
 Logs/
+TestResults/
+configtest.py

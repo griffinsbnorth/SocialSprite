@@ -193,7 +193,7 @@ def editwatcher(watcherid):
         'wtype': editwatcher.wtype,
         'titleprefix': editwatcher.titleprefix,
         'titlekey': editwatcher.titlekey,
-        'searchkeys': editwatcher.searchkeys,
+        'searchkeys': ','.join(editwatcher.searchkeys),
         'updatekey': editwatcher.updatekey,
         'prevkey': editwatcher.prevkey,
         'nextkey': editwatcher.nextkey,
@@ -428,7 +428,7 @@ def patreon_post():
     ).hexdigest()
     
     if signature != expected_sig:
-        current_app.logger.info("Invalid patreon signature from webhook request.")
+        current_app.logger.info(f"Invalid patreon signature from webhook request.")
         return jsonify({"error": "Invalid signature"}), 401
     
     # Process the webhook
@@ -439,7 +439,10 @@ def patreon_post():
         post_data = data["data"]
         publishdate = datetime.datetime.now() + timedelta(hours=1)
         cycleweeks = 5
-        user = User.query.filter(User.username == os.getenv("SS_USERNAME")).first()
+        username = "test_user"
+        if current_app.config["TESTING"] == False:
+            username = os.getenv("SS_USERNAME")
+        user = User.query.filter(User.username == username).first()
 
         if not user:
             current_app.logger.info(f'Patreon webhook - Found no user.')

@@ -298,7 +298,7 @@ class Processpost():
         if validimagefile:
             for imgfile in imagefiles:
                 sfilename = secure_filename(imgfile.filename)
-                imgpath = os.path.join(Config.UPLOAD_FOLDER, sfilename)
+                imgpath = os.path.join(current_app.config["UPLOAD_FOLDER"], sfilename)
                 if self.watcher_request:
                     ua = ua_generator.generate()
                     fileextension = imgfile.url.rsplit('.', 1)[1].lower()
@@ -306,7 +306,7 @@ class Processpost():
                     if r.status_code == 200:
                         if fileextension == "gif":
                             sfilename = sfilename.replace('.gif','.png')
-                            imgpath = os.path.join(Config.UPLOAD_FOLDER, sfilename)
+                            imgpath = os.path.join(current_app.config["UPLOAD_FOLDER"], sfilename)
                         try:
                             im = PILImage.open(io.BytesIO(r.content))
                             im.save(imgpath)
@@ -362,7 +362,7 @@ class Processpost():
         duplicates = DBImage.query.filter(DBImage.url == filename).all()
 
         if not duplicates:
-            filepath = Config.UPLOAD_FOLDER + '/' + filename
+            filepath = current_app.config["UPLOAD_FOLDER"] + '/' + filename
             if os.path.exists(filepath):
                 os.remove(filepath)
 
